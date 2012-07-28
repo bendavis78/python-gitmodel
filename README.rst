@@ -9,12 +9,12 @@ and remote syncing.
 
 Why?
 ----
-According to Git's README[1], Git is a "stupid content tracker". That means you
+According to Git's README [1]_, Git is a "stupid content tracker". That means you
 aren't limited to storing source code in git. The goal of this project is to
 provide an object-level interface to use git as a schema-less data store, as
-well as tools that take advantage of gits powerful versioning capabilities.
+well as tools that take advantage of git's powerful versioning capabilities.
 
-python-gitmodel is based on libgit2[2], a pure C implementation of the Git core
+python-gitmodel is based on libgit2 [2]_, a pure C implementation of the Git core
 methods. This means that instead of calling git commands via shell, we get
 to use git at native speed.
 
@@ -31,7 +31,7 @@ What it's good for
 -------------------------------------------------------------------------------
 
 python-gitmodel was inspired by Rick Olson's talk, "Git, the Stupid NoSQL 
-Database"[3] and Paul Downman's GitModel[4] for ruby.
+Database" [3]_ and Paul Downman's GitModel [4]_ for ruby.
 
 -------------------------------------------------------------------------------
 
