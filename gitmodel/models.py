@@ -8,7 +8,7 @@ from gitmodel import fields
 from gitmodel.utils import git
 
 # attributes that can be overridden in a model's options ("Meta" class)
-META_OPTS = ('git_index_name',)
+META_OPTS = ('git_tree_name',)
 
 class GitModelOptions(object):
     """
@@ -19,7 +19,7 @@ class GitModelOptions(object):
         self.config = config
         self.local_fields = []
         self.local_many_to_many = []
-        self.git_index_name = ''
+        self.git_tree_name = ''
         self.object_name = None
         self.parents = []
         self.id_field = None
@@ -29,7 +29,7 @@ class GitModelOptions(object):
 
         # Default values for these options
         self.object_name = cls.__name__
-        self.git_index_name = self.object_name.lower()
+        self.git_tree_name = self.object_name.lower()
 
         # Apply overrides from Meta
         if self.meta:
@@ -257,7 +257,7 @@ class GitModel(object):
         return tree_id
 
     def get_path(self):
-        return os.path.join(self._meta.git_index_name, unicode(self.id))
+        return os.path.join(self._meta.git_tree_name, unicode(self.id))
 
     def get_oid(self):
         tree = self.repo.get_tree(self.branch)
@@ -284,7 +284,7 @@ class GitModel(object):
             ref = cls._meta.config.DEFAULT_BRANCH
         head_oid = repo.lookup_reference(ref).oid
         tree = repo[head_oid].tree
-        path = os.path.join(cls._meta.git_index_name, unicode(id))
+        path = os.path.join(cls._meta.git_tree_name, unicode(id))
         try:
             blob = tree[path].oid
         except KeyError:

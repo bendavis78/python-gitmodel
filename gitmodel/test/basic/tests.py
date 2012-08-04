@@ -54,9 +54,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         author.first_name = 'John'
         self.assertEqual(author.first_name, 'John')
 
-    def test_index_name(self):
-        self.assertEqual(self.models.Author._meta.git_index_name, 'author')
-        self.assertEqual(self.models.Post._meta.git_index_name, 'post')
+    def test_tree_name(self):
+        self.assertEqual(self.models.Author._meta.git_tree_name, 'author')
+        self.assertEqual(self.models.Post._meta.git_tree_name, 'post')
 
     def test_get_path(self):
         self.author.save()
