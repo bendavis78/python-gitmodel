@@ -9,12 +9,12 @@ and remote syncing.
 
 Why?
 ----
-According to Git's README [1]_, Git is a "stupid content tracker". That means you
+According to `Git's README`_, Git is a "stupid content tracker". That means you
 aren't limited to storing source code in git. The goal of this project is to
 provide an object-level interface to use git as a schema-less data store, as
 well as tools that take advantage of git's powerful versioning capabilities.
 
-python-gitmodel is based on libgit2 [2]_, a pure C implementation of the Git core
+python-gitmodel is based on `libgit2`_, a pure C implementation of the Git core
 methods. This means that instead of calling git commands via shell, we get
 to use git at native speed.
 
@@ -27,15 +27,26 @@ What it's good for
   * branch or tag snapshots of your data
   * experiment on production data using branches, for example, to test a migration
 
+Status
+------
+This project is under heavy development, and the API will likely change
+drastically before a 1.0 release. Currently only basic model creation
+and saving instances will work. 
+
+TODO
+----
+* Field validation
+* Caching
+* Searching (eg, Post.find(category='foobar') -- need an indexing solution)
+* Versioning utilities (branching/merging)
+* TreeGitModel (stores objects in hierarchical structure)
 
 -------------------------------------------------------------------------------
 
-python-gitmodel was inspired by Rick Olson's talk, "Git, the Stupid NoSQL 
-Database" [3]_ and Paul Downman's GitModel [4]_ for ruby.
+python-gitmodel was inspired by Rick Olson's talk, "`Git, the Stupid NoSQL 
+Database`_" and Paul Downman's `GitModel`_ for ruby.
 
--------------------------------------------------------------------------------
-
-.. [1] https://github.com/git/git#readme
-.. [2] http://libgit2.github.com
-.. [3] http://git-nosql-rubyconf.heroku.com/
-.. [4] https://github.com/pauldowman/gitmodel/
+.. _Git's README: https://github.com/git/git#readme
+.. _libgit2: http://libgit2.github.com
+.. _Git, the Stupid NoSQL Database: http://git-nosql-rubyconf.heroku.com/
+.. _GitModel: https://github.com/pauldowman/gitmodel/
