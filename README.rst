@@ -37,7 +37,8 @@ TODO
 ----
 * Field validation
 * Caching
-* Searching (eg, Post.find(category='foobar') -- need an indexing solution)
+* Indexing
+* Query API
 * Versioning utilities (branching/merging)
 * TreeGitModel (stores objects in hierarchical structure)
 
