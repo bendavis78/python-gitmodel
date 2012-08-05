@@ -13,3 +13,12 @@ class Post(GitModel):
     body = fields.CharField()
     author = fields.ToOneField(Author, blank=True, null=True)
     image = fields.FileField(blank=True)
+
+class Person(GitModel):
+    first_name = fields.CharField()
+    last_name = fields.CharField()
+    email = fields.EmailField()
+
+class User(Person):
+    password = fields.CharField()
+    date_joined = fields.DateField()

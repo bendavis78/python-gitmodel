@@ -61,7 +61,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_get_path(self):
         self.author.save()
         path = self.author.get_path()
-        self.assertEqual(path, 'author/{}'.format(self.author.id))
+        self.assertEqual(path, 'author/{}'.format(self.author.get_id()))
 
     def test_get_oid(self):
         from gitmodel.utils import git
@@ -87,7 +87,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # verify data
         data = json.loads(blob.data)
         self.assertItemsEqual(data, {
-            'id': self.author.id,
+            'id': self.author.get_id(),
             'first_name': 'John',
             'last_name': 'Doe',
             'email': 'jdoe@example.com',
@@ -102,7 +102,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # verify data
         data = json.loads(blob.data)
         self.assertItemsEqual(data, {
-            'id': self.author.id,
+            'id': self.author.get_id(),
             'first_name': 'John',
             'last_name': 'Doe',
             'email': 'jdoe@example.com',
@@ -129,7 +129,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # verify data
         data = json.loads(blob.data)
         self.assertItemsEqual(data, {
-            'id': self.author.id,
+            'id': self.author.get_id(),
             'first_name': 'John',
             'last_name': 'Doe',
             'email': 'jdoe@example.com',
@@ -141,10 +141,17 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_get_simple_object(self):
         self.author.save(commit=True)
-        author = self.models.Author.get(self.author.id)
+        author = self.models.Author.get(self.author.get_id())
         self.assertEqual(author.first_name, 'John')
         self.assertEqual(author.last_name, 'Doe')
         self.assertEqual(author.email, 'jdoe@example.com')
+
+    def test_save_custom_id(self):
+        self.post.save(commit=True)
+        post = self.models.get('test-post')
+        self.AssertEqual(post.get_id(), 'test-post')
+        self.AssertEqual(post.slug, 'test-post')
+        self.AssertEqual(post.title, 'Test Post')
 
     def test_id_validator(self):
         # "/" and "\0" are both invalid characters
@@ -173,11 +180,18 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_custom_id_field(self):
         # id should resolve to the slug field, since slug is marked as id=True
         self.post.save()
-        self.assertEqual(self.post.id, self.post.slug)
+        self.assertEqual(self.post.get_id(), self.post.slug)
     
     def test_basic_inheritance(self):
-        #TODO
-        self.assertTrue(False)
+        fields = [f.name for f in self.models.User._meta.fields]
+        self.assertEqual(fields, [
+            'id',
+            'first_name',
+            'last_name',
+            'email',
+            'password',
+            'date_joined',
+        ])
 
     def test_inherited_field_clash(self):
         #TODO

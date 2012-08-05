@@ -8,7 +8,7 @@ from gitmodel import fields
 from gitmodel.utils import git
 
 # attributes that can be overridden in a model's options ("Meta" class)
-META_OPTS = ('git_tree_name',)
+META_OPTS = ('git_tree_name', 'id_field')
 
 class GitModelOptions(object):
     """
@@ -20,7 +20,7 @@ class GitModelOptions(object):
         self.local_fields = []
         self.local_many_to_many = []
         self.git_tree_name = ''
-        self.object_name = None
+        self.model_name = None
         self.parents = []
         self.id_field = None
 
@@ -28,8 +28,8 @@ class GitModelOptions(object):
         cls._meta = self
 
         # Default values for these options
-        self.object_name = cls.__name__
-        self.git_tree_name = self.object_name.lower()
+        self.model_name = cls.__name__
+        self.git_tree_name = self.model_name.lower()
 
         # Apply overrides from Meta
         if self.meta:
@@ -77,7 +77,7 @@ class GitModelOptions(object):
         for field in self.fields:
             if field.name == name:
                 return field
-        msg = "Field not '{}' not found on model '{}'".format(name, self.object_name)
+        msg = "Field not '{}' not found on model '{}'".format(name, self.model_name)
         raise exceptions.FieldError(msg)
 
     def _fill_fields_cache(self):
@@ -87,15 +87,18 @@ class GitModelOptions(object):
         cache = []
         for parent in self.parents:
             for field in parent._meta.fields:
-                if not field.autocreated:
+                # only add id field if not specified locally
+                if not (field.id and any(f.id for f in self.local_fields)):
                     cache.append(field)
         cache.extend(self.local_fields)
         self._field_cache = tuple(cache)
 
     def _prepare(self, model):
+        # set up id field
         if self.id_field is None:
-            declared_id_fields = [f for f in self.local_fields if f.id]
+            declared_id_fields = [f for f in self.fields if f.id]
             if len(declared_id_fields) > 1:
+                import ipdb; ipdb.set_trace()
                 raise exceptions.ConfigurationError("You may only have one id field per model")
             elif len(declared_id_fields) == 1:
                 self.id_field = declared_id_fields[0].name
@@ -135,8 +138,11 @@ class DeclarativeMetaclass(type):
         new_class.add_to_class('_meta', GitModelOptions(meta, config))
 
         # Add all attributes to the class
+
         for obj_name, obj in attrs.items():
             new_class.add_to_class(obj_name, obj)
+
+        local_field_names = [f.name for f in new_class._meta.local_fields]
 
         # Handle parents
         for base in parents:
@@ -145,16 +151,16 @@ class DeclarativeMetaclass(type):
                 continue
 
             parent_fields = base._meta.local_fields
+
             # Check for duplicate field definitions in parents
             for field in parent_fields:
                 if field.autocreated:
                     # skip adding autocreated fields to child class
                     continue
-                if field.name in new_class._meta.local_fields:
-                    msg = 'Duplicate field %s found in class %r already exists '\
-                          'in base class %r'
+                if field.name in local_field_names:
+                    msg = 'Duplicate field name "%s" in %r already exists in '\
+                          'base model %r'
                     raise exceptions.FieldError(msg % (field.name, name, base.__name))
-                field.contribute_to_class(new_class, field.name)
 
             new_class._meta.parents.append(base)
 
@@ -222,6 +228,9 @@ class GitModel(object):
         super(GitModel, self).__init__()
 
     def save(self, ref=None, stage=False, commit=False, commit_info=None):
+        # make sure model has clean data
+        self.full_clean()
+
         format = self._meta.config.DEFAULT_SERIALIZER
         serialized = serialize(self, format)
 
@@ -256,8 +265,11 @@ class GitModel(object):
         # leave it up to caller to decide what to do
         return tree_id
 
+    def get_id(self):
+        return getattr(self, self._meta.id_field)
+
     def get_path(self):
-        return os.path.join(self._meta.git_tree_name, unicode(self.id))
+        return os.path.join(self._meta.git_tree_name, unicode(self.get_id()))
 
     def get_oid(self):
         tree = self.repo.get_tree(self.branch)
@@ -265,13 +277,36 @@ class GitModel(object):
             return tree[self.get_path()].oid
         except KeyError:
             return None
-    
+
+    def clean(self):
+        """
+        Hook for doing any extra model-secific validation after fields have
+        been cleaned.
+        """
+        pass
+
+    def clean_fields(self):
+        """
+        Validates all fields on the model.
+        """
+        for field in self._meta.fields:
+            raw_value = getattr(self, field.name)
+            setattr(self, field.name, field.clean(raw_value, self))
+
+    def full_clean(self):
+        """
+        Calls clean_fields() and clean()
+        """
+        self.clean_fields()
+        self.clean()
+
+
     @contextmanager
     def lock(self):
         """
         Acquires a lock for this object.
         """
-        with self.repo.lock(self.id):
+        with self.repo.lock(self.get_id()):
             yield
     
     @classmethod
