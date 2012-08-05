@@ -7,7 +7,11 @@ class TestInstancesMixin(object):
         super(TestInstancesMixin, self).setUp()
         
         from gitmodel.test.basic import models
+        from gitmodel import exceptions
+        from gitmodel import fields
         self.models = models
+        self.exceptions = exceptions
+        self.fields = fields
         
         self.author = models.Author(
             email='jdoe@example.com',
@@ -194,6 +198,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         ])
 
     def test_inherited_field_clash(self):
-        #TODO
-        # implemented in metclass creation
-        self.assertTrue(False)
+        with self.assertRaises(self.exceptions.FieldError):
+            class User(self.models.Person):
+                first_name = self.fields.CharField()
+                password = self.fields.CharField()
+                date_joined = self.fields.DateField()
