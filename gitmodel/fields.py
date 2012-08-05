@@ -12,10 +12,6 @@ class NOT_PROVIDED:
         return 'No default provided.'
 
 
-EMPTY_VALUES = (None, '', [], (), {})
-INVALID_PATH_CHARS = ('/', '\000')
-DATE_REGEX = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2}).*?$')
-DATETIME_REGEX = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})(T|\s+)(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2}).*?$')
 
 
 class Field(object):
@@ -112,10 +108,12 @@ class Field(object):
         if value is None and not self.null:
             raise ValidationError('null', self)
 
-        if not self.blank and value in EMPTY_VALUES:
+        empty_values = (None, '', [], (), {})
+        if not self.blank and value in empty_values:
             raise ValidationError('blank', self)
 
-        if self.id and any(c in value for c in INVALID_PATH_CHARS):
+        invalid_path_chars = ('/', '\000')
+        if self.id and any(c in value for c in invalid_path_chars):
             raise ValidationError('invalid_path', self)
 
     def clean(self, value, model_instance):
@@ -131,7 +129,7 @@ class Field(object):
 
     def get_error_message(self, error_code, default=''):
         msg = self.error_messages.get(error_code, default)
-        return 'The "{}" field {}'.format(msg)
+        return 'The "{}" field {}'.format(self.name, msg)
 
 class CharField(Field):
     """
@@ -277,18 +275,19 @@ class DateField(Field):
         if value is None:
             return None
 
+        return value
+
+    def validate(self, value, model_instance):
         #TODO move validation to validate() function
         if isinstance(value, basestring):
-            match = DATE_REGEX.search(value)
+            date_regex = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2}).*?$')
+            match = date_regex.search(value)
 
             if match:
                 data = match.groupdict()
                 return datetime_safe.date(int(data['year']), int(data['month']), int(data['day']))
             else:
                 raise FieldError("Date provided to '%s' field doesn't appear to be a valid date string: '%s'" % (self.attname, value))
-
-        return value
-
 
 class DateTimeField(Field):
     """
@@ -302,7 +301,8 @@ class DateTimeField(Field):
             return None
 
         if isinstance(value, basestring):
-            match = DATETIME_REGEX.search(value)
+            datetime_regex = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})(T|\s+)(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2}).*?$')
+            match = datetime_regex.search(value)
 
             if match:
                 data = match.groupdict()

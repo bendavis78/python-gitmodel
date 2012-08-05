@@ -160,7 +160,7 @@ class DeclarativeMetaclass(type):
                 if field.name in local_field_names:
                     msg = 'Duplicate field name "%s" in %r already exists in '\
                           'base model %r'
-                    raise exceptions.FieldError(msg % (field.name, name, base.__name))
+                    raise exceptions.FieldError(msg % (field.name, name, base.__name__))
 
             new_class._meta.parents.append(base)
 

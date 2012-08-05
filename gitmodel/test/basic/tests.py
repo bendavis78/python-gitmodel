@@ -159,10 +159,12 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_id_validator(self):
         # "/" and "\0" are both invalid characters
-        with self.assertRaises(ValueError):
-            self.author.email='foo/bar'
-        with self.assertRaises(ValueError):
-            self.author.email='foo\000bar'
+        self.author.id='foo/bar'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.author.save()
+        self.author.id='foo\000bar'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.author.save()
 
     def test_save_with_binary(self):
         fd = open(os.path.join(os.path.dirname(__file__), 'git-logo-2color.png'))
