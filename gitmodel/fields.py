@@ -267,33 +267,6 @@ class BooleanField(Field):
 
         return bool(value)
 
-
-class ListField(Field):
-    """
-    A list field.
-    """
-    help_text = "A list of data. Ex: ['abc', 26.73, 8]"
-
-    def to_python(self, value):
-        if value is None:
-            return None
-
-        return list(value)
-
-
-class DictField(Field):
-    """
-    A dictionary field.
-    """
-    help_text = "A dictionary of data. Ex: {'price': 26.73, 'name': 'Daniel'}"
-
-    def to_python(self, value):
-        if value is None:
-            return None
-
-        return dict(value)
-
-
 class DateField(Field):
     """
     A date field.
