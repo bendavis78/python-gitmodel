@@ -23,6 +23,7 @@ What it's good for
 * Schema-less data store
 * Never lose data. History is kept forever and can be restored using git tools.
 * Branch and merge your production data
+
   * python-gitmodel can work with different branches
   * branch or tag snapshots of your data
   * experiment on production data using branches, for example, to test a migration
