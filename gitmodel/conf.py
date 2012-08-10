@@ -23,9 +23,3 @@ class Config(dict):
 
     def __setattr__(self, name, value):
         self[name] = value
-
-
-# gitmodel.config.gloabl_settings are used as the default __config__ for
-# GitModel classes, but this can be overridden to allow for individual
-# config objects.
-global_settings = Config()

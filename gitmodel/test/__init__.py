@@ -11,24 +11,21 @@ class GitModelTestCase(unittest.TestCase):
     def setUp(self):
         # For tests, it's easier to use global_config so that we don't
         # have to pass a config object around.
-        from gitmodel.conf import global_settings
+        from gitmodel.repository import Repository
         from gitmodel import exceptions
         from gitmodel import utils
-
-        self.config = global_settings
-        self.config.REPOSITORY_PATH = tempfile.mkdtemp()
 
         self.exceptions = exceptions
         self.utils = utils
 
-        # gitmodel does not create your repo for you
-        self.repo = pygit2.init_repository(self.config.REPOSITORY_PATH, False)
-        self.index = self.repo.index
-        self.index.read()
+        # Create temporary repo to work from
+        repo_path = tempfile.mkdtemp()
+        pygit2.init_repository(repo_path, False)
+        self.repo = Repository(repo_path)
 
     def tearDown(self):
         # clean up test repo
-        shutil.rmtree(self.config.REPOSITORY_PATH)
+        shutil.rmtree(self.repo._repo.path)
 
 
 def get_module_suite(mod):

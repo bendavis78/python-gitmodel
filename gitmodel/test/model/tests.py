@@ -6,20 +6,21 @@ class TestInstancesMixin(object):
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
         
-        from gitmodel.test.basic import models
+        from gitmodel.test.model import models
         from gitmodel import exceptions
         from gitmodel import fields
-        self.models = models
+
         self.exceptions = exceptions
         self.fields = fields
+        self.models = models.setup(self.repo)
         
-        self.author = models.Author(
+        self.author = self.models.Author(
             email='jdoe@example.com',
             first_name='John',
             last_name='Doe',
         )
 
-        self.post = models.Post(
+        self.post = self.models.Post(
             slug='test-post',
             title='Test Post',
             body='Lorem ipsum dolor sit amet',
@@ -30,9 +31,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_meta(self):
         self.assertIsNotNone(self.models.Author._meta)
 
-    def test_config(self):
-        from gitmodel.conf import Config
-        self.assertIsInstance(self.models.Author._meta.config, Config)
+    def test_repo_in_model_meta(self):
+        from gitmodel.repository import Repository
+        self.assertIsInstance(self.models.Author._meta.repo, Repository)
 
     def test_fields_added_to_meta(self):
         fields = [f.name for f in self.models.Author._meta.fields]
@@ -53,7 +54,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_create_from_kwargs(self):
         self.assertEqual(self.author.first_name, 'John')
 
-    def test_property_assign(self):
+    def test_property_assignment(self):
         author = self.models.Author()
         author.first_name = 'John'
         self.assertEqual(author.first_name, 'John')
@@ -68,12 +69,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(path, 'author/{}'.format(self.author.get_id()))
 
     def test_get_oid(self):
-        from gitmodel.utils import git
         self.author.save(commit=True)
         test_oid = self.author.get_oid()
         self.assertIsNotNone(test_oid)
-        tree = self.author.repo.get_tree('refs/heads/master')
-        obj = git.get_object_by_path(tree, self.author.get_path())
+        obj = self.repo.index[self.author.get_path()]
         self.assertEqual(obj.oid, test_oid)
 
     def test_field_default(self):
@@ -81,26 +80,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_save(self):
         # save without adding to index or commit
-        tree_id = self.author.save()
-        tree = self.repo[tree_id]
+        self.author.save()
 
         # get json from the returned tree using pygit2 code
-        entry = tree[self.author.get_path()]
-        blob = self.repo[entry.oid]
-
-        # verify data
-        data = json.loads(blob.data)
-        self.assertItemsEqual(data, {
-            'id': self.author.get_id(),
-            'first_name': 'John',
-            'last_name': 'Doe',
-            'email': 'jdoe@example.com',
-            'language': '',
-        })
-
-    def test_save_stage(self):
-        index = self.author.save(stage=True)
-        entry = index[self.author.get_path()]
+        entry = self.repo.index[self.author.get_path()]
         blob = self.repo[entry.oid]
 
         # verify data
@@ -118,7 +101,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
             'author': ('John Doe', 'jdoe@example.com'), 
             'message': 'Testing save with commit'
         }
-        commit_id = self.author.save(commit=True, commit_info=commit_info)
+        commit_id = self.author.save(commit=True, **commit_info)
         commit = self.repo[commit_id]
 
         # verify commit
@@ -152,10 +135,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_save_custom_id(self):
         self.post.save(commit=True)
-        post = self.models.get('test-post')
-        self.AssertEqual(post.get_id(), 'test-post')
-        self.AssertEqual(post.slug, 'test-post')
-        self.AssertEqual(post.title, 'Test Post')
+        post = self.models.Post.get('test-post')
+        self.assertEqual(post.get_id(), 'test-post')
+        self.assertEqual(post.slug, 'test-post')
+        self.assertEqual(post.title, 'Test Post')
 
     def test_id_validator(self):
         # "/" and "\0" are both invalid characters

@@ -96,8 +96,6 @@ class Field(object):
 
     def __cmp__(self, other):
         # This is needed because bisect does not take a comparison function.
-        if isinstance(self, basestring) or isinstance(other, basestring):
-            import ipdb; ipdb.set_trace()
         return cmp(self.creation_counter, other.creation_counter)
 
     def validate(self, value, model_instance):

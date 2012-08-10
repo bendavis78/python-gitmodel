@@ -14,11 +14,11 @@ def get_serializer_module(config, format):
 
 
 def serialize(obj, format, **options):
-    config = obj._meta.config
+    config = obj._meta.repo.config
     serializer = get_serializer_module(config, format).Serializer()
     return serializer.serialize(obj, **options)
 
 def deserialize(model, data, format, **options):
-    config = model._meta.config
+    config = model._meta.repo.config
     deserializer = get_serializer_module(config, format).Deserializer(model, **options)
     return deserializer.deserialize(data)

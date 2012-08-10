@@ -3,7 +3,6 @@ from bisect import bisect
 from contextlib import contextmanager
 from gitmodel.serializers import serialize, deserialize
 from gitmodel import exceptions
-from gitmodel import conf
 from gitmodel import fields
 from gitmodel.utils import git
 
@@ -14,9 +13,9 @@ class GitModelOptions(object):
     """
     An options class for ``GitModel``.
     """
-    def __init__(self, meta, config):
+    def __init__(self, meta, repo):
         self.meta = meta
-        self.config = config
+        self.repo = repo
         self.local_fields = []
         self.local_many_to_many = []
         self.git_tree_name = ''
@@ -98,7 +97,6 @@ class GitModelOptions(object):
         if self.id_field is None:
             declared_id_fields = [f for f in self.fields if f.id]
             if len(declared_id_fields) > 1:
-                import ipdb; ipdb.set_trace()
                 raise exceptions.ConfigurationError("You may only have one id field per model")
             elif len(declared_id_fields) == 1:
                 self.id_field = declared_id_fields[0].name
@@ -121,21 +119,21 @@ class DeclarativeMetaclass(type):
         module = attrs.pop('__module__')
         new_class = super(DeclarativeMetaclass, cls).__new__(cls, name, bases, 
                 {'__module__': module})
+                      
+        repo = attrs.pop('__repo__', None)
 
-        config = attrs.pop('__config__', None)
-        
         # grab the declared Meta
         meta = attrs.pop('Meta', None)
         if not meta:
             # if not declared, make sure we use parent's meta
             meta = getattr(new_class, 'Meta', None)
 
-        if config is None:
-            config = parents[0]._meta.config
+        if repo is None and len(parents) > 0:
+            repo = parents[0]._meta.repo
 
         # Add _meta to the new class. The _meta property is an instance of 
         # GitModelOptions, based off of the optionall declared "Meta" class
-        new_class.add_to_class('_meta', GitModelOptions(meta, config))
+        new_class.add_to_class('_meta', GitModelOptions(meta, repo))
 
         # Add all attributes to the class
 
@@ -191,7 +189,7 @@ class DeclarativeMetaclass(type):
 
 class GitModel(object):
     __metaclass__ = DeclarativeMetaclass
-    __config__ = conf.global_settings
+    __repository__ = None
 
     def __init__(self, **kwargs):
         # To keep things simple, we only accept attribute values as kwargs
@@ -220,50 +218,29 @@ class GitModel(object):
             if kwargs:
                 raise TypeError("'{}' is an invalid keyword argument for this function".format(kwargs.keys()[0]))
 
-        self.repo = git.Repository(self._meta.config)
-        
-        # set the initial branch to use
-        self.branch = self._meta.config.DEFAULT_BRANCH
-
         super(GitModel, self).__init__()
 
-    def save(self, ref=None, stage=False, commit=False, commit_info=None):
+    def save(self, commit=False, **commit_info):
         # make sure model has clean data
         self.full_clean()
 
-        format = self._meta.config.DEFAULT_SERIALIZER
+        format = self._meta.repo.config.DEFAULT_SERIALIZER
         serialized = serialize(self, format)
 
+        repo = self._meta.repo
+
+        # only allow commit-during-save if repo doesn't have pending changes.
+        #NEEDS-TEST
+        if commit and repo.has_changes():
+            msg = "Repository has pending changes. Cannot auto-commit until "\
+                  "pending changes have been comitted."
+            raise exceptions.RepositoryError(msg)
+
         # create the entry
-        blob = self.repo.create_blob(serialized)
-        path, name = os.path.split(self.get_path())
-        entry = (name, blob, git.GIT_MODE_NORMAL)
+        repo.add_blob(self.get_path(), serialized)
 
-        ref = ref or self._meta.config.DEFAULT_BRANCH
-
-        # get the current tree
-        try:
-            ref = self.repo.lookup_reference(ref)
-        except KeyError:
-            current_tree = None
-        else:
-            current_tree = self.repo[ref.oid].tree.oid
-
-        # build the tree for this commit/stage
-        tree_id = self.repo.build_path(path, (entry,), current_tree)
-
-        
-        # if commit and stage are both true, we don't need to stage
         if commit:
-            commit_info = commit_info or {}
-            return self.repo.create_commit(ref, tree_id, **commit_info)
-        elif stage:
-            self.repo.index.read_tree(tree_id)
-            self.repo.index.write()
-            return self.repo.index
-
-        # leave it up to caller to decide what to do
-        return tree_id
+            return repo.commit(**commit_info)
 
     def get_id(self):
         return getattr(self, self._meta.id_field)
@@ -272,9 +249,8 @@ class GitModel(object):
         return os.path.join(self._meta.git_tree_name, unicode(self.get_id()))
 
     def get_oid(self):
-        tree = self.repo.get_tree(self.branch)
         try:
-            return tree[self.get_path()].oid
+            return self._meta.repo.index[self.get_path()].oid
         except KeyError:
             return None
 
@@ -306,7 +282,7 @@ class GitModel(object):
         """
         Acquires a lock for this object.
         """
-        with self.repo.lock(self.get_id()):
+        with self._meta.repo.lock(self.get_id()):
             yield
     
     @classmethod
@@ -314,24 +290,13 @@ class GitModel(object):
         """
         Gets the object associated with the given id
         """
-        repo = git.Repository(cls._meta.config)
-        if not ref:
-            ref = cls._meta.config.DEFAULT_BRANCH
-        head_oid = repo.lookup_reference(ref).oid
-        tree = repo[head_oid].tree
+        repo = cls._meta.repo
         path = os.path.join(cls._meta.git_tree_name, unicode(id))
         try:
-            blob = tree[path].oid
+            blob = repo.index[path].oid
         except KeyError:
             name = cls.__name__
             raise exceptions.DoesNotExist("{} with id {} does not exist.".format(name, id))
         data = repo[blob].data
-        format = cls._meta.config.DEFAULT_SERIALIZER
+        format = cls._meta.repo.config.DEFAULT_SERIALIZER
         return deserialize(cls, data, format)
-
-
-class GitTreeModel(GitModel):
-    """
-    A GitModel which is stored using a git tree structure.
-    """
-    pass
