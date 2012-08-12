@@ -30,7 +30,7 @@ What's so great about it?
 
 * Ideal for content-driven applications
 
-Example Usage
+Example usage
 -------------
 Below we'll cover a use-case for a basic flat-page CMS.
 
@@ -38,10 +38,10 @@ Basic model creation:
 
 .. code:: python
 
-  from gitmodel import repository
+  from gitmodel.repository import Repository
   from gitmodel import fields
   
-  repo = gitmodel.Repository
+  repo = Repository('path/to/my-repo/.git')
 
   class Page(repo.GitModel):
       slug = fields.SlugField() 
