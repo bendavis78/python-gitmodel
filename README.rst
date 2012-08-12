@@ -18,8 +18,8 @@ python-gitmodel is based on `libgit2`_, a pure C implementation of the Git core
 methods. This means that instead of calling git commands via shell, we get
 to use git at native speed.
 
-What it's good for
-------------------
+What's so great about it?
+-------------------------
 * Schema-less data store
 * Never lose data. History is kept forever and can be restored using git tools.
 * Branch and merge your production data
@@ -27,6 +27,98 @@ What it's good for
   * python-gitmodel can work with different branches
   * branch or tag snapshots of your data
   * experiment on production data using branches, for example, to test a migration
+
+* Ideal for content-driven applications
+
+Example Usage
+-------------
+Below we'll cover a use-case for a basic flat-page CMS.
+
+Basic model creation: 
+
+.. code:: python
+
+  from gitmodel import repository
+  from gitmodel import fields
+  
+  repo = gitmodel.Repository
+
+  class Page(repo.GitModel):
+      slug = fields.SlugField() 
+      title = fields.CharField()
+      content = fields.CharField()
+      published = fields.BooleanField(default=True)
+
+Saving objects:
+
+.. code:: python
+
+  page = Page(slug='example-page', title='Example Page')
+  page.content = '<h2>Here is an Example</h2><p>Lorem Ipsum</p>'
+  page.save()
+
+  print(page.id)
+  # abc99c394ab546dd9d6e3381f9c0fb4b
+
+By default, objects get an auto-ID field which saves as a python UUID hex 
+(don't confuse these with git hashes). You can easily customize which field in
+your model acts as the ID field, for example:
+
+.. code:: python
+
+  class Page(repo.GitModel):
+      slug = fields.SlugField(id=True)
+  
+  # OR
+
+  class Page(repo.GitModel):
+      slug = fields.SlugField()
+
+      class Meta:
+          id_field = 'slug'
+ 
+Objects are not committed to the repository by default. They are, however,  
+written into the object database as trees and blobs. The ``repo.index`` object 
+is a ``pygit2.Tree`` that holds the uncommitted data. It's analagous to Git's 
+index, except that the pointer is stored in memory. 
+
+Creating commits is simple:
+
+.. code:: python
+  
+  oid = page.save(commit=True, message='Added an example page')
+  commit = repo[oid] # a pygit2.Commit object
+  print(commit.message)
+
+You can access previous commits using pygit2, and even view diffs between two
+versions of an object.
+
+.. code:: python
+  
+  # walking commits
+  for commit in repo.walk():
+      print("{}: {}".format(commit.hex, commit.message)) 
+  
+  # get a diff between two commits
+  head_commit = repo.branch.commit
+  prev_commit_oid = head_commit.parents[0]
+  print(prev_commit.diff(head_commit))
+
+Objects can be easily retrieved by their id:
+
+.. code:: python
+  
+  page = Page.get('example-page')
+  print(page.content)
+
+ 
+Caveat Emptor
+-------------
+Git doesn't perform very well on its own. If you need your git-backed data to
+perform well in a production environment, you need to get it a "wingman". 
+Since python-gitmodel can be used in a variety of ways, it's up to you to
+decide the best way to optimize it. To make it a little easier, python-gitmodel
+provides a simple framework for building custom caching and indexing backends.
 
 Status
 ------
@@ -36,12 +128,13 @@ and saving instances will work.
 
 TODO
 ----
+* Relational fields
 * Field validation
 * Caching
 * Indexing
 * Query API
 * Versioning utilities (branching/merging)
-* TreeGitModel (stores objects in hierarchical structure)
+* Full documentation
 
 -------------------------------------------------------------------------------
 
