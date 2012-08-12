@@ -164,6 +164,12 @@ class Repository(object):
         # shouldn't be a problem.
         return self._repo.create_commit(ref, author, committer, message, tree.oid, parents)
     
+    def walk(self, sort=pygit2.GIT_SORT_TIME):
+        """Iterate through commits on the current branch"""
+        #NEEDS-TEST
+        for commit in self._repo.walk(self.branch.oid, sort):
+            yield commit
+
     @contextmanager
     def lock(self, id):
         """
