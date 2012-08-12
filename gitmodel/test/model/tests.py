@@ -59,14 +59,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         author.first_name = 'John'
         self.assertEqual(author.first_name, 'John')
 
-    def test_tree_name(self):
-        self.assertEqual(self.models.Author._meta.git_tree_name, 'author')
-        self.assertEqual(self.models.Post._meta.git_tree_name, 'post')
-
     def test_get_path(self):
         self.author.save()
         path = self.author.get_path()
-        self.assertEqual(path, 'author/{}'.format(self.author.get_id()))
+        self.assertEqual(path, 'author/{}/data.json'.format(self.author.get_id()))
 
     def test_get_oid(self):
         self.author.save(commit=True)
@@ -123,8 +119,39 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
             'language': '',
         })
 
+    def test_diff_nobranch(self):
+        # Tests a diff when a save is made with no previous commits
+        self.maxDiff = None
+        self.author.save()
+        self.assertTrue(self.repo.has_changes())
+        blob_hash = self.repo.index[self.author.get_path()].to_object().hex[:7]
+        diff = open(os.path.join(os.path.dirname(__file__), 'diff_nobranch.diff')).read()
+        diff = diff.format(self.author.get_path(), blob_hash, self.author.id)
+        self.assertMultiLineEqual(diff, self.repo.diff().patch)
+
+    def test_diff_branch(self):
+        # Tests a diff when a save is made with previous commits
+        self.maxDiff = None
+        self.author.save(commit=True, message="Test first commit")
+        blob_hash_1 = self.repo.index[self.author.get_path()].to_object().hex[:7]
+        self.author.first_name = 'Jane'
+        self.author.save()
+        blob_hash_2 = self.repo.index[self.author.get_path()].to_object().hex[:7]
+        diff = open(os.path.join(os.path.dirname(__file__), 'diff_branch.diff')).read()
+        diff = diff.format(self.author.get_path(), blob_hash_1, blob_hash_2, self.author.id)
+        self.assertMultiLineEqual(diff, self.repo.diff().patch)
+
     def test_save_commit_history(self):
-        self.assertTrue(False)
+        # Test that commited models save correctly
+        import pygit2
+        commit1 = self.author.save(commit=True, message="Test first commit")
+        self.author.first_name = 'Jane'
+        commit2 = self.author.save(commit=True, message="Changed name to Jane")
+        self.assertEqual(self.repo.branch.commit.oid, commit2)
+        self.assertEqual(self.repo[commit2].parents[0].oid, commit1)
+        commits = [c for c in self.repo._repo.walk(self.repo.branch.oid, pygit2.GIT_SORT_TIME)]
+        self.assertEqual(commits[0].oid, commit2)
+        self.assertEqual(commits[1].oid, commit1)
 
     def test_get_simple_object(self):
         self.author.save(commit=True)
@@ -148,18 +175,6 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.id='foo\000bar'
         with self.assertRaises(self.exceptions.ValidationError):
             self.author.save()
-
-    def test_save_with_binary(self):
-        fd = open(os.path.join(os.path.dirname(__file__), 'git-logo-2color.png'))
-        self.post.image = fd
-        self.post.save()
-
-        #make sure stored file and original file are identical
-        fd.seek(0)
-        entry = self.repo[self.post.get_path()]
-        blob = self.repo[entry.oid]
-        orig_content = fd.read()
-        self.assertEqual(blob, orig_content)
 
     def test_require_fields(self):
         test_author = self.models.Author(first_name='Jane')
@@ -188,3 +203,18 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
                 first_name = self.fields.CharField()
                 password = self.fields.CharField()
                 date_joined = self.fields.DateField()
+
+    def test_meta_overrides(self):
+        self.assertEqual(self.models.PostAlternate._meta.id_field, 'slug')
+
+    def test_make_path_override(self):
+        post = self.models.PostAlternate(slug='foobar', title='Foobar')
+        post.save()
+        self.assertEqual(post.get_path(), 'post-alt/foobar/data.json') 
+        
+    def test_commit_when_pending_changes(self):
+        self.author.save()
+        self.author.first_name = 'Jane'
+        with self.assertRaises(self.exceptions.RepositoryError):
+            self.author.save(commit=True)
+

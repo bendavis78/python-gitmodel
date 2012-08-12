@@ -5,14 +5,11 @@ import pygit2
 from gitmodel import conf
 from gitmodel import exceptions
 from gitmodel import models
-from gitmodel.utils.git import make_signature
+from gitmodel.utils import git
 
-GIT_MODE_NORMAL     = 0o100633
-GIT_MODE_EXECUTABLE = 0o100755
-GIT_MODE_SYMLINK    = 0o120000
-GIT_MODE_TREE       = 0o040000
-GIT_MODE_COMMIT     = 0o160000
-
+# TODO: Should this be called something other than Repository, since we already
+# have pygit2.Repository? Maybe we should think of this class as the analog to
+# a "working dir" and call it Workspace?
 class Repository(object):
     """
     A Git repository. Acts as an encapsulation within which any model work is 
@@ -49,6 +46,7 @@ class Repository(object):
         self.GitModel = metaclass('GitModel', (models.GitModel,), attrs)
 
     def __getitem__(self, key):
+        # TODO: cache oid's for more efficient lookups
         return self._repo[key]
 
     def create_blob(self, content):
@@ -61,13 +59,12 @@ class Repository(object):
     @property
     def branch(self):
         try:
-            return self._repo.lookup_reference(self.head)
+            return Branch(self._repo, self.head)
         except KeyError:
             return None
 
     def update_index(self, ref=None):
         """Sets the index to the current branch or to the given ref"""
-        #NEEDS-TEST
         # Don't change the index if there are pending changes.
         if self.has_changes():
             msg = "Cannot checkout a different branch with pending changes"
@@ -76,68 +73,24 @@ class Repository(object):
         if not self.branch:
             msg = "Pathspec {} did not match any files known to git".format(ref)
             raise exceptions.RepositoryError(msg)
-        self.index = self.branch.commit.tree
+        self.index = self.branch.tree
 
     def add(self, path, entries):
         """
         Updates the current index given a path and a list of entries
         """
-        #NEEDS-TEST
-        oid = self.build_path(path, entries, self.index)
+        oid = git.build_path(self._repo, path, entries, self.index)
         self.index = self._repo[oid]
 
-    def add_blob(self, path, content, mode=GIT_MODE_NORMAL):
+    def add_blob(self, path, content, mode=git.GIT_MODE_NORMAL):
         """
         Creates a blob object and adds it to the current index
         """
-        blob = self._repo.create_blob(content)
         path, name = os.path.split(path)
+        blob = self._repo.create_blob(content)
         entry = (name, blob, mode)
         self.add(path, [entry])
         return blob
-
-    def build_path(self, path, entries=None, tree=None):
-        """
-        Builds out a tree path, starting with the leaf node, and updating all 
-        trees up the parent chain, resulting in (potentially) a new OID for the
-        root tree. 
-
-        If ``entries`` is provided, those entries are inserted (or updated)
-        in the tree for the given path.
-
-        If ``tree`` is provided, the path will be built based off of that
-        tree. Otherwise, it is built off of the repo's current tree.
-        
-        The root tree OID is returned, so that it can be included in a commit 
-        or stage. While the trees are written to the object db, they are not 
-        read into the index, nor are they associated with any commmit or 
-        reference. If you don't handle the returned OID in some way, it may 
-        result in orphaned objects.
-        """
-        path = path.strip(os.path.sep)
-        if path is not None and path != '':
-            parent, name = os.path.split(path)
-        else:
-            parent, name = None, None
-        
-        # build tree
-        tb_args = tree is not None and (tree,) or ()
-        tb = self._repo.TreeBuilder(*tb_args)
-        for entry in entries:
-            tb.insert(*entry)
-        oid = tb.write()
-
-        if parent is None:
-            # we're at the root tree
-            return oid
-
-        entry = (name, oid, GIT_MODE_TREE)
-
-        if parent == '':
-            # parent is the root tree
-            return self.build_path('', (entry,))
-
-        return self.build_path(parent, (entry,))
 
     @contextmanager
     def commit_on_success(self, message='', author=None, committer=None):
@@ -147,7 +100,6 @@ class Repository(object):
         the repository is in a clean state (i.e., no changes) before allowing
         any further changes.
         """
-        #NEEDS-TEST
         # ensure a clean state
         if self.has_changes():
             msg = "Repository has pending changes. Cannot auto-commit until "\
@@ -163,13 +115,12 @@ class Repository(object):
         Returns a pygit2.Diff object representing a diff between the current
         index and the current branch.
         """
-        #NEEDS-TEST
         if self.branch:
-            tree = self._repo[self.branch.oid].commit.tree
+            tree = self.branch.tree
         else:
             empty_tree = self._repo.TreeBuilder().write()
             tree = self._repo[empty_tree]
-        return self.index.diff(tree)
+        return tree.diff(self.index)
 
     def has_changes(self):
         """Returns True if the current tree differs from the current branch"""
@@ -177,12 +128,11 @@ class Repository(object):
     
     def commit(self, message='', author=None, committer=None):
         """Commits the current tree to the current branch."""
-        #NEEDS-TEST
         if not self.has_changes():
             return None
         parents = []
         if self.branch:
-            parents = [self.branch.commit]
+            parents = [self.branch.commit.oid]
         return self.create_commit(self.head, self.index, message, author, committer, parents)
        
     def create_commit(self, ref, tree, message='', author=None, committer=None, parents=None):
@@ -198,8 +148,8 @@ class Repository(object):
             committer = author
         
         default_offset = self.config.get('DEFAULT_TZ_OFFSET', None)
-        author = make_signature(*author, default_offset=default_offset)
-        committer = make_signature(*committer, default_offset=default_offset)
+        author = git.make_signature(*author, default_offset=default_offset)
+        committer = git.make_signature(*committer, default_offset=default_offset)
 
         if parents is None:
             try:
@@ -240,3 +190,14 @@ class Repository(object):
         except KeyError:
             return False
         return True
+
+class Branch(object):
+    """
+    A representation of a git branch that provides quick access to the ref,
+    commit, and commit tree.
+    """
+    def __init__(self, repo, ref):
+        self.ref = repo.lookup_reference(ref)
+        self.oid = self.ref.oid
+        self.commit = repo[self.oid]
+        self.tree = self.commit.tree

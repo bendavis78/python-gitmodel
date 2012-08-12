@@ -1,3 +1,4 @@
+import os
 from gitmodel.test import GitModelTestCase
 
 class TestInstancesMixin(object):
@@ -128,6 +129,17 @@ class RelatedFieldTest(TestInstancesMixin, GitModelTestCase):
         self.post.save()
         self.assertUnless(False)
 
+class FileFieldTest(TestInstancesMixin, GitModelTestCase):
+    def test_save_with_binary(self):
+        fd = open(os.path.join(os.path.dirname(__file__), 'git-logo-2color.png'))
+        self.post.image = fd
+        self.post.save()
+
+        #make sure stored file and original file are identical
+        fd.seek(0)
+        saved_content = self.post.image.file.read()
+        control = fd.read()
+        self.assertEqual(saved_content, control, "Saved blob does not match file")
 
 class InheritedFieldTest(GitModelTestCase):
     def test_inherited_local_fields(self):

@@ -2,6 +2,7 @@ import unittest
 import inspect
 import tempfile
 import os
+import re
 import shutil
 import pygit2
 
@@ -44,7 +45,12 @@ def get_module_suite(mod):
             if inspect.isclass(obj) and issubclass(obj, unittest.TestCase):
                 suite.addTest(unittest.makeSuite(obj))
         # Set a name attribute so we can find it later
-        suite.name = mod.__name__.split('.')[-2]
+        if mod.__name__.endswith('tests'):
+            name = mod.__name__.split('.')[-2]
+        else:
+            name = mod.__name__.split('.')[-1]
+            name = re.sub(r'^test_', '', name)
+        suite.name = name
         suite.module = mod
         return suite
 
@@ -53,14 +59,14 @@ def get_all_suites():
     """ Yields all testsuites """
     # Tests can be one of:
     # - test/suitename/tests.py
-    # - test/suitename_tests.py
+    # - test/test_suitename.py
     test_dir = os.path.dirname(__file__)
     for f in os.listdir(test_dir):
         mod = None
         if os.path.exists(os.path.join(test_dir, f, 'tests.py')): 
             p = __import__('gitmodel.test.{}'.format(f), globals(), locals(), ['tests'], -1)
             mod = p.tests
-        elif f.endswith('_tests.py'):
+        elif re.match(r'^test_\w+.py$', f):
             modname = f.replace('.py', '')
             p = __import__('gitmodel.test', globals(), locals(), [modname], -1)
             mod = getattr(p, modname)
@@ -84,7 +90,7 @@ class TestLoader(unittest.TestLoader):
 
         testcase = None
         if '.' in name:
-            name, testcase = name.rsplit('.',1)
+            name, testcase = name.split('.',1)
         
         for suite in get_all_suites():
             if suite.name == name:

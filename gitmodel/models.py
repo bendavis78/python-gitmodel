@@ -4,10 +4,9 @@ from contextlib import contextmanager
 from gitmodel.serializers import serialize, deserialize
 from gitmodel import exceptions
 from gitmodel import fields
-from gitmodel.utils import git
 
 # attributes that can be overridden in a model's options ("Meta" class)
-META_OPTS = ('git_tree_name', 'id_field')
+META_OPTS = ('id_field', 'make_path')
 
 class GitModelOptions(object):
     """
@@ -18,7 +17,6 @@ class GitModelOptions(object):
         self.repo = repo
         self.local_fields = []
         self.local_many_to_many = []
-        self.git_tree_name = ''
         self.model_name = None
         self.parents = []
         self.id_field = None
@@ -28,24 +26,28 @@ class GitModelOptions(object):
 
         # Default values for these options
         self.model_name = cls.__name__
-        self.git_tree_name = self.model_name.lower()
 
         # Apply overrides from Meta
         if self.meta:
             meta_attrs = self.meta.__dict__.copy()
             # Ignore private attributes
-            for name in self.meta.__dict:
+            for name in self.meta.__dict__:
                 if name.startswith('_'):
                     del meta_attrs[name]
 
-            for attr_name in META_OPTS:
-                if attr_name in meta_attrs:
-                    setattr(self, attr_name, meta_attrs.pop(attr_name))
-                elif hasattr(self.meta, attr_name):
-                    setattr(self, attr_name, getattr(self.meta, attr_name))
-
-
+            override_attrs = [a for a in META_OPTS if a in meta_attrs]
+            for attr_name in override_attrs:
+                value = meta_attrs.pop(attr_name)
+                # if attr is a function, bind it to this instance
+                if hasattr(value, '__call__'):
+                    value = value.__get__(self, self.__class__)
+                setattr(self, attr_name, value)
         del self.meta
+
+    def make_path(self, object_id):
+        """Default method for building the path name for model instances"""
+        model_name = self.model_name.lower()
+        return os.path.join(model_name, unicode(object_id), 'data.json')
 
     def add_field(self, field):
         """ Insert a field into the fields list in correct order """
@@ -230,7 +232,6 @@ class GitModel(object):
         repo = self._meta.repo
 
         # only allow commit-during-save if repo doesn't have pending changes.
-        #NEEDS-TEST
         if commit and repo.has_changes():
             msg = "Repository has pending changes. Cannot auto-commit until "\
                   "pending changes have been comitted."
@@ -246,7 +247,7 @@ class GitModel(object):
         return getattr(self, self._meta.id_field)
 
     def get_path(self):
-        return os.path.join(self._meta.git_tree_name, unicode(self.get_id()))
+        return self._meta.make_path(unicode(self.get_id()))
 
     def get_oid(self):
         try:
@@ -286,16 +287,16 @@ class GitModel(object):
             yield
     
     @classmethod
-    def get(cls, id, ref=None):
+    def get(cls, id):
         """
         Gets the object associated with the given id
         """
+        path = cls._meta.make_path(id)
         repo = cls._meta.repo
-        path = os.path.join(cls._meta.git_tree_name, unicode(id))
         try:
             blob = repo.index[path].oid
         except KeyError:
-            name = cls.__name__
+            name = cls._meta.model_name
             raise exceptions.DoesNotExist("{} with id {} does not exist.".format(name, id))
         data = repo[blob].data
         format = cls._meta.repo.config.DEFAULT_SERIALIZER
