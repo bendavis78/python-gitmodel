@@ -7,7 +7,6 @@ import decimal
 
 from gitmodel.serializers.python import Serializer as PythonSerializer
 from gitmodel.serializers.python import Deserializer as PythonDeserializer
-from gitmodel.utils import datetime_safe
 from gitmodel.utils import json
 
 class Serializer(PythonSerializer):
@@ -36,18 +35,13 @@ class GitModelJSONEncoder(json.JSONEncoder):
     JSONEncoder subclass that knows how to encode date/time and decimal types.
     """
 
-    DATE_FORMAT = "%Y-%m-%d"
-    TIME_FORMAT = "%H:%M:%S"
-
     def default(self, o):
         if isinstance(o, datetime.datetime):
-            d = datetime_safe.new_datetime(o)
-            return d.strftime("%s %s" % (self.DATE_FORMAT, self.TIME_FORMAT))
+            return o.isoformat()
         elif isinstance(o, datetime.date):
-            d = datetime_safe.new_date(o)
-            return d.strftime(self.DATE_FORMAT)
+            return o.isoformat().split('T')[0]
         elif isinstance(o, datetime.time):
-            return o.strftime(self.TIME_FORMAT)
+            return o.isoformat()
         elif isinstance(o, decimal.Decimal):
             return str(o)
         else:
