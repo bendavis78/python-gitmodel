@@ -3,21 +3,17 @@ from gitmodel.test import GitModelTestCase
 
 class TestInstancesMixin(object):
     def setUp(self):
-        super(TestInstancesMixin, self).setup()
-
-        from gitmodel.test.fields import models
-        self.models = models
+        super(TestInstancesMixin, self).setUp()
+        from gitmodel.test.fields.models import setup
+        self.models = setup(self.repo)
 
         # person object with valid fields, which we'll change to invalid in the
         # individual tests
-        self.person = models.Person(
+        self.person = self.models.Person(
             slug = 'john-doe',
             first_name = 'John',
             last_name = 'Doe',
             email = 'jdoe@example.com',
-            age = 21,
-            account_balance = 123.45,
-            active = True
         )
 
 class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
@@ -34,100 +30,149 @@ class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
 
     def test_validate_email(self):
         self.person.email = 'foo_at_example.com'
-        with self.assertRasies(self.exceptions.ValidationError):
+        with self.assertRaises(self.exceptions.ValidationError):
             self.person.save()
     
     def test_validate_slug(self):
-        self.slug = 'Foo Bar'
+        self.person.slug = 'Foo Bar'
         with self.assertRaises(self.exceptions.ValidationError):
             self.person.save()
 
     def test_validate_integer(self):
+        self.person.age = 20.5
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
         self.person.age = 'twenty-one'
         with self.assertRaises(self.exceptions.ValidationError):
             self.person.save()
 
     def test_validate_float(self):
-        #TODO
-        self.assertUnless(False)
+        self.person.tax_rate = '5%'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
+        self.person.tax_rate = '1.2.3'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
 
     def test_validate_decimal(self):
-        #TODO
-        self.assertUnless(False)
-
-    def test_validate_boolean(self):
-        #TODO
-        self.assertUnless(False)
+        self.person.account_balance = 'one.two'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
+        self.person.account_balance = '1.2.3'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
 
     def test_validate_date(self):
-        #TODO
-        self.assertUnless(False)
+        # valid iso-8601 date
+        self.person.birth_date = '1978-12-07'
+        self.person.save() 
+        # not a valid iso-8601 date
+        self.person.birth_date = '12/7/1978'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
 
     def test_validate_datetime(self):
-        #TODO
-        self.assertUnless(False)
+        # not a valid iso-8601 datetime
+        self.person.date_joined = '12/8/2012 4:53pm'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
 
     def test_validate_time(self):
-        #TODO
-        self.assertUnless(False)
-
-    def test_validate_list(self):
-        #TODO
-        self.assertUnless(False)
-
-    def test_validate_dict(self):
-        #TODO
-        self.assertUnless(False)
+        self.person.wake_up_call = '9am'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
+        self.person.wake_up_call = '2012-08-10 09:00'
+        with self.assertRaises(self.exceptions.ValidationError):
+            self.person.save()
 
 class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
+
+    def assertTypesMatch(self, field, test_values, type):
+        for value, eq_value in test_values.iteritems():
+            setattr(self.person, field, value)
+            self.person.save()
+            person = self.models.Person.get(self.person.id)
+            self.assertIsInstance(getattr(person, field), type)
+            self.assertEqual(getattr(person, field), eq_value)
+
     def test_char(self):
-        #TODO make sure char is typed correctly
-        self.assertUnless(False)
+        from datetime import datetime
+        test_values = {
+            'John': 'John', 
+            .007: '0.007',
+            datetime(2012,12,12): '2012-12-12 00:00:00'
+        }
+        self.assertTypesMatch('first_name', test_values, basestring)
 
     def test_integer(self):
-        #TODO make sure integer is typed correctly
-        self.assertUnless(False)
+        test_values = {33:33, '33':33}
+        self.assertTypesMatch('age', test_values, int)
     
     def test_float(self):
-        #TODO: make sure float is typed correctly
-        #Note: ints should be typecasted to floats
-        self.assertUnless(False)
+        test_values = {.825:.825, '0.825':.825}
+        self.assertTypesMatch('tax_rate', test_values, float)
 
     def test_decimal(self):
-        #TODO: make sure decimal is typed correctly
-        #Note: ints, floats should be typecasted to Decimal
-        self.assertUnless(False)
+        from decimal import Decimal
+        test_values = {
+            '1.23':Decimal('1.23'), 
+            '12.300':Decimal('12.3'),
+            1:Decimal('1.0')
+        }
+        self.assertTypesMatch('account_balance', test_values, Decimal)
 
     def test_boolean(self):
-        #TODO: make sure boolean is typed correctly
-        self.assertUnless(False)
+        test_values = {
+            True:True,
+            False:False,
+            1:True, 
+            0:False, 
+            None:False
+        }
+        self.assertTypesMatch('active', test_values, bool)
 
     def test_date(self):
-        #TODO: make sure date is typed correctly
-        self.assertUnless(False)
+        from datetime import date
+        test_values = {
+            '1978-12-7': date(1978,12,7),
+            '1850-05-05': date(1850,5,5),
+        }
+        self.assertTypesMatch('birth_date', test_values, date)
 
     def test_datetime(self):
-        #TODO: make sure datetime is typed correctly
-        self.assertUnless(False)
+        from datetime import datetime, date
+        from dateutil import tz
+        test_values = {
+            '2012-05-30 14:32': datetime(2012,5,30,14,32),
+            '1820-8-13 9:23:48Z': datetime(1820,8,13,9,23,48,0,tz.tzutc()),
+            '2001-9-11 8:46:00-0400': datetime(2001,9,11,8,46,0,0,tz.tzoffset(None, -1*4*60*60)),
+            '2012-05-05 14:32:02.012345': datetime(2012,5,5,14,32,2,12345),
+        }
+        self.assertTypesMatch('date_joined', test_values, datetime)
+        # test a normal date
+        self.person.date_joined = '2012-01-01'
+        self.person.save()
+        person = self.models.Person.get(self.person.id)
+        self.assertIsInstance(person.date_joined, date)
+        self.assertEqual(person.date_joined, datetime(2012,1,1).date())
 
     def test_time(self):
-        #TODO: make sure time is typed correctly
-        self.assertUnless(False)
+        from datetime import time
+        from dateutil import tz
+        test_values = {
+            '14:32': time(14,32),
+            '9:23:48Z': time(9,23,48,0,tz.tzutc()),
+            '8:46:00-0400': time(8,46,0,0,tz.tzoffset(None, -1*4*60*60))
+        }
+        self.assertTypesMatch('wake_up_call', test_values, time)
 
-    def test_list(self):
-        #TODO: make sure lists are typed correctly
-        self.assertUnless(False)
-
-    def test_dict(self):
-        #TODO: make sure dicts are typed correctly
-        self.assertUnless(False)
 
 class RelatedFieldTest(TestInstancesMixin, GitModelTestCase):
     def test_related(self):
         self.author.save()
         self.post.author = self.author
         self.post.save()
-        self.assertUnless(False)
+        self.assertTrue(False)
 
 class FileFieldTest(TestInstancesMixin, GitModelTestCase):
     def test_save_with_binary(self):
@@ -144,8 +189,8 @@ class FileFieldTest(TestInstancesMixin, GitModelTestCase):
 class InheritedFieldTest(GitModelTestCase):
     def test_inherited_local_fields(self):
         #TODO:
-        self.assertUnless(False)
+        self.assertTrue(False)
 
     def test_inherited_related_fields(self):
         #TODO
-        self.assertUnless(False)
+        self.assertTrue(False)

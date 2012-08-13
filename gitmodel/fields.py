@@ -1,63 +1,55 @@
-import datetime
 import re
 import uuid
-from dateutil.parser import parse
-from decimal import Decimal
-from gitmodel.utils import datetime_safe
-from gitmodel.exceptions import FieldError, ValidationError
-
+import decimal
+from datetime import datetime, date, time
+from gitmodel.utils import isodate
+from gitmodel.exceptions import ValidationError
 
 class NOT_PROVIDED:
     def __str__(self):
         return 'No default provided.'
 
-
-
+INVALID_PATH_CHARS = ('/', '\000')
 
 class Field(object):
-    """The base implementation of a field used by git models."""
-    help_text = ''
-    empty_strings_allowed = False
+    """The base implementation of a field used by a GitModel class."""
     creation_counter = 0
     default_error_messages = {
-        'blank': 'cannot be blank',
-        'null': 'cannot be null',
+        'required': 'is required',
         'invalid_path': 'may only contain valid path characters',
     }
-    error_messages = {}
 
-    def __init__(self, name=None, attribute=None, id=False, 
-            default=NOT_PROVIDED, null=False, blank=False, readonly=False, 
-            unique=False, help_text=None, serialize=True, autocreated=False):
+    def __init__(self, name=None, id=False, default=NOT_PROVIDED,
+            required=True, readonly=False, unique=False, serialize=True, 
+            autocreated=False, error_messages=None):
 
         self._model = None
         self.name = name
-        self.attribute = attribute
         self.id = id
         self._default = default
-        self.null = null
-        self.blank = blank
+        self.required = required
         self.readonly = readonly
         self.value = None
         self.unique = unique
         self.serialize = serialize
         self.autocreated = autocreated
 
-        error_messages = self.default_error_messages
-        error_messages.update(self.error_messages)
-        self.error_messages = error_messages
-        
+        # update error_messages using default_error_messages from all parents
+        #NEEDS-TEST
+        messages = {}
+        for c in reversed(self.__class__.__mro__):
+            messages.update(getattr(c, 'default_error_messages', {}))
+        messages.update(error_messages or {})
+        self.error_messages = messages
+
+
         # store the creation index in the "creation_counter" of the field
         self.creation_counter = Field.creation_counter
         # increment the global counter
         Field.creation_counter += 1
 
-        if help_text:
-            self.help_text = help_text
-
     def contribute_to_class(self, cls, name):
         self.name = name
-        self.attribute = self.attribute or name
         self.model = cls
         cls._meta.add_field(self)
 
@@ -72,8 +64,6 @@ class Field(object):
             if callable(self._default):
                 return self._default()
             return self._default
-        if not self.empty_strings_allowed:
-            return None
         return 
     
     def _get_val_from_obj(self, obj):
@@ -85,33 +75,30 @@ class Field(object):
     def value_to_string(self, obj):
         return unicode(self._get_val_from_obj(obj))
 
-    def to_python(self, value):
-        """
-        Handles conversion between the data found and the type of the field.
-
-        Extending classes should override this method and provide correct
-        data coercion.
-        """
-        return value
+    def empty(self, value):
+        """Returns True if value is considered an empty value for this field"""
+        return not value;
 
     def __cmp__(self, other):
         # This is needed because bisect does not take a comparison function.
         return cmp(self.creation_counter, other.creation_counter)
 
+    def to_python(self, value):
+        """
+        Coerces the data into a valid python value. Raises ValidationError if
+        the value cannot be coerced.
+        """
+        return value
+
     def validate(self, value, model_instance):
         """
-        Validates value and throws ValidationError. Subclasses should override
-        this to provide validation logic.
+        Validates a coerced value (ie, passed through to_python) and throws a
+        ValidationError if invalid.
         """
-        if value is None and not self.null:
-            raise ValidationError('null', self)
+        if self.required and self.empty(value):
+            raise ValidationError('required', self)
 
-        empty_values = (None, '', [], (), {})
-        if not self.blank and value in empty_values:
-            raise ValidationError('blank', self)
-
-        invalid_path_chars = ('/', '\000')
-        if self.id and any(c in value for c in invalid_path_chars):
+        if self.id and any(c in value for c in INVALID_PATH_CHARS):
             raise ValidationError('invalid_path', self)
 
     def clean(self, value, model_instance):
@@ -127,18 +114,15 @@ class Field(object):
 
     def get_error_message(self, error_code, default=''):
         msg = self.error_messages.get(error_code, default)
-        return 'The "{}" field {}'.format(self.name, msg)
+        return '"{name}" {err}'.format(name=self.name, err=msg)
 
 class CharField(Field):
     """
     A text field of arbitrary length.
     """
-    empty_strings_allowed = True
-    help_text = 'Unicode string data. Ex: "Hello World"'
 
     def to_python(self, value):
-        # if we don't allow null, but do allow blank, convert None to ''
-        if value is None and self.blank and not self.null:
+        if value is None and not self.required:
             return ''
 
         if value is None:
@@ -147,24 +131,26 @@ class CharField(Field):
         return unicode(value)
 
 class SlugField(CharField):
-    error_messages = {
+    default_error_messages = {
         'invalid_slug': 'must contain only letters, numbers, underscores and dashes'
     }
     def validate(self, value, model_instance):
+        super(SlugField, self).validate(value, model_instance)
         slug_re = re.compile(r'^[-\w]+$')
         if not slug_re.match(value):
             raise ValidationError('invalid_slug', self)
 
 class EmailField(CharField):
-    error_messages = {
+    default_error_messages = {
         'invalid_email': 'must be a valid e-mail address'
     }
     def validate(self, value, model_instance):
+        super(EmailField, self).validate(value, model_instance)
         email_re = re.compile(
             r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
             r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]|\\[\001-011\013\014\016-\177])*"' # quoted-string
             r')@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?$', re.IGNORECASE)  # domain
-        if not email_re.matches(value):
+        if not email_re.match(value):
             raise ValidationError('invalid_email', self)
 
 
@@ -181,22 +167,25 @@ class IntegerField(Field):
     """
     An integer field.
     """
-    help_text = 'Integer data. Ex: 3742'
-    error_messages = {
+    default_error_messages = {
         'invalid_int': 'must be an integer'
     }
 
     def to_python(self, value):
         if value is None:
             return None
-
-        return int(value)
-
-    def validate(self, value, model_instance):
+        # we should only allow whole numbers. so we coerce to float first, then
+        # check to see if it's divisible by 1 without a remainder
         try:
-            self.to_python(value)
+            value = float(value)
         except ValueError:
             raise ValidationError('invalid_int', self)
+        if value % 1 != 0:
+            raise ValidationError('invalid_int', self)
+        return int(value)
+
+    def empty(self, value):
+        return value is None
 
 class UUIDField(CharField):
     """
@@ -207,126 +196,148 @@ class UUIDField(CharField):
         return uuid.uuid4().hex
 
 class FloatField(Field):
-    """
-    A floating point field.
-    """
-    help_text = 'Floating point numeric data. Ex: 26.73'
-    error_messages = {
+    default_error_messages = {
         'invalid_float': 'must be a floating-point number'
     }
 
     def to_python(self, value):
         if value is None:
             return None
-
-        return float(value)
-
-    def validate(self, value, model_instance):
         try:
-            self.to_python(value)
+            return float(value)
         except ValueError:
             raise ValidationError('invalid_float', self)
 
+    def empty(self, value):
+        return value is None
+
 
 class DecimalField(Field):
-    """
-    A decimal field.
-    """
-    help_text = 'Fixed precision numeric data. Ex: 26.73'
-    error_messages = {
-        'invalid_decimal': 'must be a decimal number'
+    default_error_messages = {
+        'invalid_decimal': 'must be a numeric value',
+    }
+
+    def __init__(self, max_digits=None, decimal_places=None, **kwargs):
+        self.max_digits = max_digits
+        self.decimal_places = decimal_places
+        super(DecimalField, self).__init__(**kwargs)
+
+    def to_python(self, value):
+        if value is None:
+            return None
+        try:
+            return decimal.Decimal(value)
+        except decimal.InvalidOperation:
+            raise ValidationError('invalid_decimal', self)
+
+    def empty(self, value):
+        return value is None
+
+
+class BooleanField(Field):
+
+    def __init__(self, nullable=False, **kwargs):
+        self.nullable = nullable
+        super(BooleanField, self).__init__(**kwargs)
+
+    def to_python(self, value):
+        if value is None and self.nullable:
+            return None
+        return bool(value)
+    
+    def empty(self, value):
+        return value is None
+
+
+
+class DateField(Field):
+    default_error_messages = {
+        'invalid_format': 'must be in the format of YYYY-MM-DD',
+        'invalid': 'must be a valid date',
     }
 
     def to_python(self, value):
         if value is None:
-            return None
-
-        return Decimal(value)
-
-    def validate(self, value, model_instance):
-        try:
-            self.to_python(value)
-        except ValueError:
-            raise ValidationError('invalid_decimal', self)
-
-
-
-class BooleanField(Field):
-    """
-    A boolean field.
-    """
-    help_text = 'Boolean data. Ex: True'
-
-    def to_python(self, value):
-        if value is None:
-            return None
-
-        return bool(value)
-
-class DateField(Field):
-    """
-    A date field.
-    """
-    help_text = 'A date as a string. Ex: "2010-11-10"'
-
-    def to_python(self, value):
-        if value is None:
-            return None
-
-        return value
-
-    def validate(self, value, model_instance):
-        #TODO move validation to validate() function
+            return value
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        
         if isinstance(value, basestring):
-            date_regex = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2}).*?$')
-            match = date_regex.search(value)
+            try:
+                return isodate.parse_iso_date(value)
+            except isodate.InvalidFormat:
+                raise ValidationError('invalid_format', self)
+            except isodate.InvalidDate:
+                raise ValidationError('invalid', self)
 
-            if match:
-                data = match.groupdict()
-                return datetime_safe.date(int(data['year']), int(data['month']), int(data['day']))
-            else:
-                raise FieldError("Date provided to '%s' field doesn't appear to be a valid date string: '%s'" % (self.attname, value))
+    def value_to_string(self, obj):
+        val = self._get_val_from_obj(obj)
+        if val is None:
+            return ''
+        else:
+            return val.isoformat().split('T')[0]
 
 class DateTimeField(Field):
-    """
-    A datetime field.
-    """
-    help_text = 'A date & time as a string. Ex: "2010-11-10T03:07:43"'
+    default_error_messages = {
+        'invalid_format': 'must be in the format of YYYY-MM-DD HH:MM[:SS]',
+        'invalid': 'must be a valid date/time'
+    }
 
-    #TODO move validation to validate() function
     def to_python(self, value):
         if value is None:
-            return None
+            return value
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, date):
+            return datetime(value.year, value.month, value.day)
 
         if isinstance(value, basestring):
-            datetime_regex = re.compile('^(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})(T|\s+)(?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2}).*?$')
-            match = datetime_regex.search(value)
+            try:
+                return isodate.parse_iso_datetime(value)
+            except isodate.InvalidFormat:
+                # we also accept a date-only string
+                try:
+                    return isodate.parse_iso_date(value)
+                except isodate.InvalidFormat:
+                    raise ValidationError('invalid_format', self)
+            except isodate.InvalidDate:
+                raise ValidationError('invalid', self)
 
-            if match:
-                data = match.groupdict()
-                return datetime_safe.datetime(int(data['year']), int(data['month']), int(data['day']), int(data['hour']), int(data['minute']), int(data['second']))
-            else:
-                raise FieldError("Datetime provided to '%s' field doesn't appear to be a valid datetime string: '%s'" % (self.attname, value))
-
-        return value
-
+    def value_to_string(self, obj):
+        val = self._get_val_from_obj(obj)
+        if val is None:
+            return ''
+        else:
+            return val.isoformat().replace('T', ' ')
 
 class TimeField(Field):
-    help_text = 'A time as string. Ex: "20:05:23"'
+    default_error_messages = {
+        'invalid_format': 'must be in the format of HH:MM[:SS]',
+        'invalid': 'must be a valid time'
+    }
 
     def to_python(self, value):
-        #TODO move validation to validate() function
-        if isinstance(value, basestring):
-            return self.to_time(value)
-        return value
+        if value is None:
+            return value
+        if isinstance(value, time):
+            return value
 
-    def to_time(self, s):
-        try:
-            dt = parse(s)
-        except ValueError, e:
-            raise FieldError(str(e))
+        if isinstance(value, basestring):
+            try:
+                return isodate.parse_iso_time(value)
+            except isodate.InvalidFormat:
+                raise ValidationError('invalid_format', self)
+            except isodate.InvalidDate:
+                raise ValidationError('invalid', self)
+
+    def value_to_string(self, obj):
+        val = self._get_val_from_obj(obj)
+        if val is None:
+            return ''
         else:
-            return datetime.time(dt.hour, dt.minute, dt.second)
+            return val.isoformat()
 
 class RelatedField(Field):
     #TODO

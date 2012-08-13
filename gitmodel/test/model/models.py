@@ -15,8 +15,8 @@ def setup(repo):
         slug = fields.SlugField(id=True)
         title = fields.CharField()
         body = fields.CharField()
-        author = fields.ToOneField(Author, blank=True, null=True)
-        image = fields.FileField(blank=True)
+        author = fields.ToOneField(Author, required=False)
+        image = fields.FileField(required=False)
 
     class Person(repo.GitModel):
         first_name = fields.CharField()
