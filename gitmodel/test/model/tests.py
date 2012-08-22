@@ -218,3 +218,11 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         with self.assertRaises(self.exceptions.RepositoryError):
             self.author.save(commit=True)
 
+    def test_multiple_saves_before_commit(self):
+        self.author.save()
+        author_id = self.author.get_id()
+        self.post.save()
+        post_id = self.post.get_id()
+        self.assertEqual(author_id, self.models.Author.get(author_id).get_id())
+        self.assertEqual(post_id, self.models.Post.get(post_id).get_id())
+

@@ -32,7 +32,7 @@ def make_signature(name, email, timestamp=None, offset=None, default_offset=None
         
     return pygit2.Signature(name, email, timestamp, offset)
 
-def describe_tree(repo, tree, indent=1, lvl=0):
+def describe_tree(repo, tree, indent=2, lvl=0):
     """
     Returns a string representation of the given tree, recursively.
     """
@@ -80,13 +80,17 @@ def build_path(repo, path, entries=None, root=None):
     if isinstance(root, basestring):
         root = repo[root]
 
-    # see if current path exists
-    try:
-        tree = root[path]
-    except KeyError:
-        tb_args = ()
+    if parent is None:
+        # we're at the root tree
+        tb_args = (root.oid,)
     else:
-        tb_args = (tree.oid,)
+        # see if current path exists 
+        try:
+            tree = root[path]
+        except KeyError:
+            tb_args = ()
+        else:
+            tb_args = (tree.oid,)
 
     # build tree
     tb = repo.TreeBuilder(*tb_args)
