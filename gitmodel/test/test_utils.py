@@ -27,7 +27,7 @@ class GitModelUtilsTest(GitModelTestCase):
         root = root_tb.write()
 
         desc = git.describe_tree(repo, root)
-        test_desc =  'foo/\n bar/\n  baz/\n   test2.txt\n  test.txt'
+        test_desc =  'foo/\n  bar/\n    baz/\n      test2.txt\n    test.txt'
         self.assertMultiLineEqual(desc, test_desc)
     
     def test_make_signature(self):
@@ -49,7 +49,7 @@ class GitModelUtilsTest(GitModelTestCase):
         self.assertEqual(test_sig.name, 'Tester Test')
         self.assertEqual(test_sig.email, 'test@example.com')
         self.assertEqual(test_sig.offset, offset)
-        self.assertAlmostEqual(test_sig.time, timestamp, places=0)
+        self.assertAlmostEqual(test_sig.time, timestamp, -1)
         
         # since we defined passed timestamp earlier, test that timestamp is
         # automatically created
@@ -65,7 +65,7 @@ class GitModelUtilsTest(GitModelTestCase):
         entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
         oid = git.build_path(self._repo, path, entries)
         desc = git.describe_tree(self._repo, oid)
-        test_desc = 'foo/\n bar/\n  baz/\n   qux.txt'
+        test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
         self.assertMultiLineEqual(desc, test_desc)
     
     def test_build_path_update(self):
@@ -84,6 +84,6 @@ class GitModelUtilsTest(GitModelTestCase):
 
         new_content = self._repo[tree2]['foo/bar/baz/qux.txt'].to_object().data
         desc = git.describe_tree(self._repo, tree2)
-        test_desc = 'foo/\n bar/\n  baz/\n   qux.txt'
+        test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
         self.assertEqual(new_content, 'UPDATED CONTENT')
         self.assertMultiLineEqual(desc, test_desc)

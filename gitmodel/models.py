@@ -1,7 +1,7 @@
 import os
 from bisect import bisect
 from contextlib import contextmanager
-from gitmodel.serializers import serialize, deserialize
+from importlib import import_module
 from gitmodel import exceptions
 from gitmodel import fields
 
@@ -20,6 +20,10 @@ class GitModelOptions(object):
         self.model_name = None
         self.parents = []
         self.id_field = None
+        
+        # attach configured serializer module
+        if repo:
+            self.serializer = import_module(repo.config.DEFAULT_SERIALIZER)
 
     def contribute_to_class(self, cls, name):
         cls._meta = self
@@ -226,8 +230,7 @@ class GitModel(object):
         # make sure model has clean data
         self.full_clean()
 
-        format = self._meta.repo.config.DEFAULT_SERIALIZER
-        serialized = serialize(self, format)
+        serialized = self._meta.serializer.serialize(self)
 
         repo = self._meta.repo
 
@@ -239,6 +242,11 @@ class GitModel(object):
 
         # create the entry
         repo.add_blob(self.get_path(), serialized)
+
+        # go through fields that have their own commit handler
+        for field in self._meta.fields:
+            value = getattr(self, field.name)
+            field.post_save(value, self, commit)
 
         if commit:
             return repo.commit(**commit_info)
@@ -299,5 +307,4 @@ class GitModel(object):
             name = cls._meta.model_name
             raise exceptions.DoesNotExist("{} with id {} does not exist.".format(name, id))
         data = repo[blob].data
-        format = cls._meta.repo.config.DEFAULT_SERIALIZER
-        return deserialize(cls, data, format)
+        return cls._meta.serializer.deserialize(cls, data)

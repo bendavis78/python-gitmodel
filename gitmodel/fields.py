@@ -1,7 +1,9 @@
 import re
+import os
 import uuid
 import decimal
 from datetime import datetime, date, time
+from StringIO import StringIO
 from gitmodel.utils import isodate
 from gitmodel.exceptions import ValidationError
 
@@ -18,12 +20,13 @@ class Field(object):
         'required': 'is required',
         'invalid_path': 'may only contain valid path characters',
     }
+    serializable = True
 
     def __init__(self, name=None, id=False, default=NOT_PROVIDED,
             required=True, readonly=False, unique=False, serialize=True, 
             autocreated=False, error_messages=None):
 
-        self._model = None
+        self.model = None
         self.name = name
         self.id = id
         self._default = default
@@ -31,7 +34,7 @@ class Field(object):
         self.readonly = readonly
         self.value = None
         self.unique = unique
-        self.serialize = serialize
+        self.serializeable = self.serializable and serialize
         self.autocreated = autocreated
 
         # update error_messages using default_error_messages from all parents
@@ -112,15 +115,33 @@ class Field(object):
         self.validate(value, model_instance)
         return value
 
+    def serialize(self, obj, value):
+        """
+        Returns a python value used for serialization.
+        """
+        return self.to_python(value)
+
+    def deserialize(self, data, value):
+        """
+        Returns the proper value just after deserialization
+        """
+        return self.to_python(value)
+
     def get_error_message(self, error_code, default=''):
         msg = self.error_messages.get(error_code, default)
         return '"{name}" {err}'.format(name=self.name, err=msg)
+
+    def post_save(self, value, model_instance, commit=False):
+        """
+        Called after the model has been saved, just before it is committed.
+        The commit argument is passed through from GitModel.save()
+        """
+        pass
 
 class CharField(Field):
     """
     A text field of arbitrary length.
     """
-
     def to_python(self, value):
         if value is None and not self.required:
             return ''
@@ -153,14 +174,44 @@ class EmailField(CharField):
         if not email_re.match(value):
             raise ValidationError('invalid_email', self)
 
+class BlobField(Field):
+    """
+    A field for storing larger amounts of data with a model. This is stored as
+    its own git blob within the repository, and added as a file entry under the
+    same path as the data.json for that instance.
+    """
+    serializable = False
 
-class FileField(CharField):
-    """
-    A file-related field. Stores file path used to retrieve the file from the
-    configured storage backend
-    """
-    #TODO
-    pass
+    def to_python(self, value):
+        if hasattr(value, 'read'):
+            return value
+        return StringIO(value)
+        
+    def post_save(self, value, instance, commit=False):
+        repo = instance._meta.repo
+        # the value should already be coerced to a file-like object by now
+        content = value.read()
+        repo.add_blob(self._get_path(instance), content)
+
+    def deserialize(self, data, value):
+        repo = self.model._meta.repo
+        path = self._get_path(data)
+        try:
+            blob = repo.index[path].oid
+        except KeyError:
+            return None
+        data = repo[blob].data
+        return StringIO(data)
+
+    def _get_path(self, instance):
+        from gitmodel import models
+        if isinstance(instance, models.GitModel):
+            path = instance.get_path()
+        else:
+            id_field = self.model._meta.id_field
+            path = self.model._meta.make_path(instance[id_field])
+        parent_path = os.path.split(path)[0]
+        return os.path.join(parent_path, self.name)
 
 
 class IntegerField(Field):
@@ -235,7 +286,6 @@ class DecimalField(Field):
 
 
 class BooleanField(Field):
-
     def __init__(self, nullable=False, **kwargs):
         self.nullable = nullable
         super(BooleanField, self).__init__(**kwargs)
@@ -340,15 +390,25 @@ class TimeField(Field):
             return val.isoformat()
 
 class RelatedField(Field):
-    #TODO
-   pass
+    def __init__(self, model, **kwargs):
+        self.to_model = model
+        super(RelatedField, self).__init__(**kwargs)
 
+    def to_python(self, value):
+        from gitmodel import models
+        if value is None:
+            return value
+     
+        if isinstance(value, models.GitModel):
+            return value
 
-class ToOneField(RelatedField):
-    #TODO
-    pass
+        return self.to_model.get(value)
 
+    def _get_val_from_obj(self, obj):
+        if obj is not None:
+            return getattr(obj, self.name).get_id()
+        else:
+            return self.default
 
-class ToManyField(RelatedField):
-    #TODO
-    pass
+    def serialize(self, obj, value):
+        return value.get_id()

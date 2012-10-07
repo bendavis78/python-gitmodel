@@ -7,13 +7,23 @@ class TestInstancesMixin(object):
         from gitmodel.test.fields.models import setup
         self.models = setup(self.repo)
 
-        # person object with valid fields, which we'll change to invalid in the
-        # individual tests
         self.person = self.models.Person(
             slug = 'john-doe',
             first_name = 'John',
             last_name = 'Doe',
             email = 'jdoe@example.com',
+        )
+
+        self.author = self.models.Author(
+            email='jdoe@example.com',
+            first_name='John',
+            last_name='Doe',
+        )
+
+        self.post = self.models.Post(
+            slug='test-post',
+            title='Test Post',
+            body='Lorem ipsum dolor sit amet',
         )
 
 class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
@@ -140,7 +150,7 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
         self.assertTypesMatch('birth_date', test_values, date)
 
     def test_datetime(self):
-        from datetime import datetime, date
+        from datetime import datetime
         from dateutil import tz
         test_values = {
             '2012-05-30 14:32': datetime(2012,5,30,14,32),
@@ -153,8 +163,8 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
         self.person.date_joined = '2012-01-01'
         self.person.save()
         person = self.models.Person.get(self.person.id)
-        self.assertIsInstance(person.date_joined, date)
-        self.assertEqual(person.date_joined, datetime(2012,1,1).date())
+        self.assertEqual(type(person.date_joined), datetime)
+        self.assertEqual(person.date_joined, datetime(2012,1,1,0,0))
 
     def test_time(self):
         from datetime import time
@@ -172,25 +182,52 @@ class RelatedFieldTest(TestInstancesMixin, GitModelTestCase):
         self.author.save()
         self.post.author = self.author
         self.post.save()
-        self.assertTrue(False)
+        post_id = self.post.get_id()
+        post = self.models.Post.get(post_id)
+        self.assertTrue(post.author.get_id() == self.author.get_id())
 
-class FileFieldTest(TestInstancesMixin, GitModelTestCase):
-    def test_save_with_binary(self):
+class BlobFieldTest(TestInstancesMixin, GitModelTestCase):
+    def test_blob_field(self):
         fd = open(os.path.join(os.path.dirname(__file__), 'git-logo-2color.png'))
+        self.author.save()
+        self.post.author = self.author
         self.post.image = fd
         self.post.save()
 
         #make sure stored file and original file are identical
+        post = self.models.Post.get(self.post.get_id())
+        saved_content = post.image.read()
         fd.seek(0)
-        saved_content = self.post.image.file.read()
         control = fd.read()
         self.assertEqual(saved_content, control, "Saved blob does not match file")
 
-class InheritedFieldTest(GitModelTestCase):
+class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
     def test_inherited_local_fields(self):
-        #TODO:
-        self.assertTrue(False)
+        user = self.models.User(
+            slug='john-doe',
+            first_name='John',
+            last_name='Doe',
+            email='jdoe@example.com',
+            password='secret',
+            last_read=self.post
+        )
+        user.save()
+        # get user
+        user_retreived = self.models.User.get(user.id)
+        self.assertEqual(user_retreived.password, 'secret')
 
     def test_inherited_related_fields(self):
-        #TODO
-        self.assertTrue(False)
+        self.post.save()
+        user = self.models.User(
+            slug='john-doe',
+            first_name='John',
+            last_name='Doe',
+            email='jdoe@example.com',
+            password='secret',
+            last_read=self.post
+        )
+        user.save()
+        # get user
+        user_retreived = self.models.User.get(user.id)
+        self.assertEqual(user_retreived.post, self.post)
+

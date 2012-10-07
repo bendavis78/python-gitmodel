@@ -1,6 +1,6 @@
 DEFAULTS = {
     'DEFAULT_BRANCH': 'refs/heads/master',
-    'DEFAULT_SERIALIZER': 'json',
+    'DEFAULT_SERIALIZER': 'gitmodel.serializer',
     'LOCK_WAIT_TIMEOUT': 30, # in seconds
     'LOCK_WAIT_INTERVAL': 1000, # in milliseconds
     'DEFAULT_GIT_USER': ('gitmodel', 'gitmodel@local'),

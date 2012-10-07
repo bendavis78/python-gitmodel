@@ -47,4 +47,3 @@ class ValidationError(GitModelError):
         else:
             msg = msg_or_code
         super(ValidationError, self).__init__(msg)
-
