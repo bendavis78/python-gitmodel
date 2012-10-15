@@ -6,23 +6,26 @@ from gitmodel import conf
 from gitmodel import exceptions
 from gitmodel import models
 from gitmodel.utils import git
+import logging
 
-# TODO: Should this be called something other than Repository, since we already
-# have pygit2.Repository? Maybe we should think of this class as the analog to
-# a "working dir" and call it Workspace?
-class Repository(object):
+class Workspace(object):
     """
-    A Git repository. Acts as an encapsulation within which any model work is 
-    done. This class does not make use of the repository's INDEX and HEAD 
-    files, and instead keeps track of the these in memory.
+    A workspace acts as an encapsulation within which any model work is done.
+    It is analogous to a git working directory. It also acts as a "porcelain"
+    layer to pygit2's "plumbing".
+    
+    In contrast to a working directory, this class does not make use of the repository's 
+    INDEX and HEAD files, and instead keeps track of the these in memory.
     """
     def __init__(self, repo_path):
         self.config = conf.Config()
         try:
-            self._repo = pygit2.Repository(repo_path)
+            self.repo = pygit2.Repository(repo_path)
         except KeyError:
             msg = "Git repository not found at {}".format(repo_path)
             raise exceptions.RepositoryNotFound(msg)
+
+        self.index = None
         
         # set default head
         self.head = self.config.DEFAULT_BRANCH
@@ -30,64 +33,86 @@ class Repository(object):
         # Set branch to head. If it the branch (head commit) doesn't exist, set
         # index to a new empty tree.
         try:
-            self._repo.lookup_reference(self.head)
+            self.repo.lookup_reference(self.head)
         except KeyError:
-            oid = self._repo.TreeBuilder().write()
-            self.index = self._repo[oid]
+            oid = self.repo.TreeBuilder().write()
+            self.index = self.repo[oid]
         else:
             self.update_index(self.head)
 
         # Create a base GitModel that can be easily extended
         metaclass = models.DeclarativeMetaclass
         attrs = {
-            '__repo__': self,
+            '__workspace__': self,
             '__module__': __name__
         }
         self.GitModel = metaclass('GitModel', (models.GitModel,), attrs)
 
-    def __getitem__(self, key):
-        # TODO: cache oid's for more efficient lookups
-        return self._repo[key]
+        self.log = logging.getLogger(__name__)
 
     def create_blob(self, content):
-        return self._repo.create_blob(content)
+        return self.repo.create_blob(content)
+
+    def create_branch(self, name, start_point=None):
+        """
+        Creates a head reference with the given name. The start_point argument
+        is the head to which the new branch will point -- it may be a branch 
+        name, commit id, or tag name (defaults to current branch).
+        """
+        if not start_point:
+            start_point = self.head
+        try:
+            start_point_ref = self.repo.lookup_reference(start_point)
+        except KeyError:
+            raise exceptions.RepositoryError("Reference not found: {}".format(start_point))
+        branch_ref  = 'refs/heads/{}'.format(name)
+        self.repo.create_reference(branch_ref, start_point_ref.commit)
+
 
     def set_branch(self, name):
-        """Sets the current head ref to the given branch name"""
-        self.head = 'refs/heads/{}'.format(name)
+        """
+        Sets the current head ref to the given branch name
+        """
+        ref  = 'refs/heads/{}'.format(name)
+        try:
+            self.repo.lookup_reference(ref)
+        except IndexError:
+            raise exceptions.RepositoryError("Reference not found: {}".format(ref))
+        self.update_index(ref)
 
     @property
     def branch(self):
         try:
-            return Branch(self._repo, self.head)
+            return Branch(self.repo, self.head)
         except KeyError:
             return None
 
     def update_index(self, ref=None):
         """Sets the index to the current branch or to the given ref"""
         # Don't change the index if there are pending changes.
-        if self.has_changes():
+        if self.index and self.has_changes():
             msg = "Cannot checkout a different branch with pending changes"
             raise exceptions.RepositoryError(msg)
+        try:
+            self.repo.lookup_reference(ref)
+        except IndexError:
+            raise exceptions.RepositoryError("Reference not found: {}".format(ref))
         self.head = ref
-        if not self.branch:
-            msg = "Pathspec {} did not match any files known to git".format(ref)
-            raise exceptions.RepositoryError(msg)
         self.index = self.branch.tree
 
     def add(self, path, entries):
         """
         Updates the current index given a path and a list of entries
         """
-        oid = git.build_path(self._repo, path, entries, self.index)
-        self.index = self._repo[oid]
+        oid = git.build_path(self.repo, path, entries, self.index)
+        self.index = self.repo[oid]
 
     def add_blob(self, path, content, mode=git.GIT_MODE_NORMAL):
         """
         Creates a blob object and adds it to the current index
         """
         path, name = os.path.split(path)
-        blob = self._repo.create_blob(content)
+        blob = self.repo.create_blob(content)
         entry = (name, blob, mode)
         self.add(path, [entry])
         return blob
@@ -118,8 +143,8 @@ class Repository(object):
         if self.branch:
             tree = self.branch.tree
         else:
-            empty_tree = self._repo.TreeBuilder().write()
-            tree = self._repo[empty_tree]
+            empty_tree = self.repo.TreeBuilder().write()
+            tree = self.repo[empty_tree]
         return tree.diff(self.index)
 
     def has_changes(self):
@@ -153,7 +178,7 @@ class Repository(object):
 
         if parents is None:
             try:
-                parent_ref = self._repo.lookup_reference(ref)
+                parent_ref = self.repo.lookup_reference(ref)
             except KeyError:
                 parents = [] #initial commit
             else:
@@ -162,12 +187,12 @@ class Repository(object):
         # FIXME: create_commit updates the HEAD ref. This may lead to race
         # conditions. As long as HEAD isn't used for anything in the system, it
         # shouldn't be a problem.
-        return self._repo.create_commit(ref, author, committer, message, tree.oid, parents)
+        return self.repo.create_commit(ref, author, committer, message, tree.oid, parents)
     
     def walk(self, sort=pygit2.GIT_SORT_TIME):
         """Iterate through commits on the current branch"""
         #NEEDS-TEST
-        for commit in self._repo.walk(self.branch.oid, sort):
+        for commit in self.repo.walk(self.branch.oid, sort):
             yield commit
 
     @contextmanager
@@ -192,7 +217,7 @@ class Repository(object):
 
     def locked(self, id):
         try:
-            self._repo.lookup_reference('refs/locks/{}'.format(id))
+            self.repo.lookup_reference('refs/locks/{}'.format(id))
         except KeyError:
             return False
         return True

@@ -3,12 +3,12 @@ from gitmodel.test import GitModelTestCase
 class GitModelUtilsTest(GitModelTestCase):
     def setUp(self):
         super(GitModelUtilsTest, self).setUp()
-        self._repo = self.repo._repo
+        self.repo = self.workspace.repo
 
     def test_describe_tree(self):
         from gitmodel.utils import git
         # build_path test depends on describe_tree, so we build one manually
-        repo = self._repo
+        repo = self.repo
         # build "/foo/bar/test.txt" and "/foo/bar/baz/test2.txt"
         test2_txt = repo.create_blob("TEST 2")
         baz_tb = repo.TreeBuilder()
@@ -61,10 +61,10 @@ class GitModelUtilsTest(GitModelTestCase):
         from gitmodel.utils import git
         path = '/foo/bar/baz/' # path sep should be stripped
         # create dummy entry
-        blob_oid = self._repo.create_blob("TEST CONTENT")
+        blob_oid = self.repo.create_blob("TEST CONTENT")
         entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
-        oid = git.build_path(self._repo, path, entries)
-        desc = git.describe_tree(self._repo, oid)
+        oid = git.build_path(self.repo, path, entries)
+        desc = git.describe_tree(self.repo, oid)
         test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
         self.assertMultiLineEqual(desc, test_desc)
     
@@ -73,17 +73,17 @@ class GitModelUtilsTest(GitModelTestCase):
         from gitmodel.utils import git
         path = '/foo/bar/baz/' # path sep should be stripped
         # build initial tree
-        blob_oid = self._repo.create_blob("TEST CONTENT")
+        blob_oid = self.repo.create_blob("TEST CONTENT")
         entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
-        tree1 = git.build_path(self._repo, path, entries)
+        tree1 = git.build_path(self.repo, path, entries)
 
         # build the same path, but this time with a new blob
-        blob_oid = self._repo.create_blob("UPDATED CONTENT")
+        blob_oid = self.repo.create_blob("UPDATED CONTENT")
         entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
-        tree2 = git.build_path(self._repo, path, entries, tree1)
+        tree2 = git.build_path(self.repo, path, entries, tree1)
 
-        new_content = self._repo[tree2]['foo/bar/baz/qux.txt'].to_object().data
-        desc = git.describe_tree(self._repo, tree2)
+        new_content = self.repo[tree2]['foo/bar/baz/qux.txt'].to_object().data
+        desc = git.describe_tree(self.repo, tree2)
         test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
         self.assertEqual(new_content, 'UPDATED CONTENT')
         self.assertMultiLineEqual(desc, test_desc)

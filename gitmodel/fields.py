@@ -188,19 +188,19 @@ class BlobField(Field):
         return StringIO(value)
         
     def post_save(self, value, instance, commit=False):
-        repo = instance._meta.repo
+        workspace = instance._meta.workspace
         # the value should already be coerced to a file-like object by now
         content = value.read()
-        repo.add_blob(self._get_path(instance), content)
+        workspace.add_blob(self._get_path(instance), content)
 
     def deserialize(self, data, value):
-        repo = self.model._meta.repo
+        workspace = self.model._meta.workspace
         path = self._get_path(data)
         try:
-            blob = repo.index[path].oid
+            blob = workspace.index[path].oid
         except KeyError:
             return None
-        data = repo[blob].data
+        data = workspace.repo[blob].data
         return StringIO(data)
 
     def _get_path(self, instance):
@@ -389,6 +389,20 @@ class TimeField(Field):
         else:
             return val.isoformat()
 
+class RelatedFieldDescriptor(object):
+    def __init__(self, field):
+        self.field = field
+        self.id = None
+
+    def __get__(self, instance, instance_type=None):
+        if instance is None:
+            return self
+        value = instance.__dict__[self.field.name]
+        return self.field.to_python(value)
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.field.name] = value
+
 class RelatedField(Field):
     def __init__(self, model, **kwargs):
         self.to_model = model
@@ -398,7 +412,7 @@ class RelatedField(Field):
         from gitmodel import models
         if value is None:
             return value
-     
+
         if isinstance(value, models.GitModel):
             return value
 
@@ -411,4 +425,11 @@ class RelatedField(Field):
             return self.default
 
     def serialize(self, obj, value):
-        return value.get_id()
+        if value is not None:
+            return value.get_id()
+        return value
+
+    def contribute_to_class(self, cls, name):
+        super(RelatedField, self).contribute_to_class(cls, name)
+        setattr(cls, name, RelatedFieldDescriptor(self))   
+

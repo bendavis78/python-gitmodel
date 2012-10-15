@@ -1,23 +1,23 @@
 from gitmodel import fields
 
-# Since our repo is instantiated inside the test, we need to wrap our model
+# Since our workspace is instantiated inside the test, we need to wrap our model
 # defintions inside a function
 
-def setup(repo):
+def setup(workspace):
 
-    class Author(repo.GitModel):
+    class Author(workspace.GitModel):
         first_name = fields.CharField()
         last_name = fields.CharField()
         email = fields.CharField()
         language = fields.CharField(default='en-US')
 
-    class Post(repo.GitModel):
+    class Post(workspace.GitModel):
         slug = fields.SlugField(id=True)
         title = fields.CharField()
         body = fields.CharField()
         image = fields.BlobField(required=False)
 
-    class Person(repo.GitModel):
+    class Person(workspace.GitModel):
         first_name = fields.CharField()
         last_name = fields.CharField()
         email = fields.EmailField()
@@ -33,7 +33,7 @@ def setup(repo):
         model_name = model_name.replace('alternate', '-alt')
         return os.path.join(model_name, unicode(object_id), 'data.json')
 
-    class PostAlternate(repo.GitModel):
+    class PostAlternate(workspace.GitModel):
         slug = fields.SlugField()
         title = fields.CharField()
         

@@ -12,9 +12,9 @@ class GitModelOptions(object):
     """
     An options class for ``GitModel``.
     """
-    def __init__(self, meta, repo):
+    def __init__(self, meta, workspace):
         self.meta = meta
-        self.repo = repo
+        self.workspace = workspace
         self.local_fields = []
         self.local_many_to_many = []
         self.model_name = None
@@ -22,8 +22,8 @@ class GitModelOptions(object):
         self.id_field = None
         
         # attach configured serializer module
-        if repo:
-            self.serializer = import_module(repo.config.DEFAULT_SERIALIZER)
+        if workspace:
+            self.serializer = import_module(workspace.config.DEFAULT_SERIALIZER)
 
     def contribute_to_class(self, cls, name):
         cls._meta = self
@@ -126,7 +126,7 @@ class DeclarativeMetaclass(type):
         new_class = super(DeclarativeMetaclass, cls).__new__(cls, name, bases, 
                 {'__module__': module})
                       
-        repo = attrs.pop('__repo__', None)
+        workspace = attrs.pop('__workspace__', None)
 
         # grab the declared Meta
         meta = attrs.pop('Meta', None)
@@ -134,12 +134,12 @@ class DeclarativeMetaclass(type):
             # if not declared, make sure we use parent's meta
             meta = getattr(new_class, 'Meta', None)
 
-        if repo is None and len(parents) > 0:
-            repo = parents[0]._meta.repo
+        if workspace is None and len(parents) > 0:
+            workspace = parents[0]._meta.workspace
 
         # Add _meta to the new class. The _meta property is an instance of 
         # GitModelOptions, based off of the optionall declared "Meta" class
-        new_class.add_to_class('_meta', GitModelOptions(meta, repo))
+        new_class.add_to_class('_meta', GitModelOptions(meta, workspace))
 
         # Add all attributes to the class
 
@@ -195,7 +195,7 @@ class DeclarativeMetaclass(type):
 
 class GitModel(object):
     __metaclass__ = DeclarativeMetaclass
-    __repository__ = None
+    __workspace__ = None
 
     def __init__(self, **kwargs):
         # To keep things simple, we only accept attribute values as kwargs
@@ -232,16 +232,17 @@ class GitModel(object):
 
         serialized = self._meta.serializer.serialize(self)
 
-        repo = self._meta.repo
+        workspace = self._meta.workspace
 
-        # only allow commit-during-save if repo doesn't have pending changes.
-        if commit and repo.has_changes():
+
+        # only allow commit-during-save if workspace doesn't have pending changes.
+        if commit and workspace.has_changes():
             msg = "Repository has pending changes. Cannot auto-commit until "\
                   "pending changes have been comitted."
             raise exceptions.RepositoryError(msg)
 
         # create the entry
-        repo.add_blob(self.get_path(), serialized)
+        workspace.add_blob(self.get_path(), serialized)
 
         # go through fields that have their own commit handler
         for field in self._meta.fields:
@@ -249,7 +250,7 @@ class GitModel(object):
             field.post_save(value, self, commit)
 
         if commit:
-            return repo.commit(**commit_info)
+            return workspace.commit(**commit_info)
 
     def get_id(self):
         return getattr(self, self._meta.id_field)
@@ -259,7 +260,7 @@ class GitModel(object):
 
     def get_oid(self):
         try:
-            return self._meta.repo.index[self.get_path()].oid
+            return self._meta.workspace.index[self.get_path()].oid
         except KeyError:
             return None
 
@@ -291,7 +292,7 @@ class GitModel(object):
         """
         Acquires a lock for this object.
         """
-        with self._meta.repo.lock(self.get_id()):
+        with self._meta.workspace.lock(self.get_id()):
             yield
     
     @classmethod
@@ -300,11 +301,12 @@ class GitModel(object):
         Gets the object associated with the given id
         """
         path = cls._meta.make_path(id)
-        repo = cls._meta.repo
+        workspace = cls._meta.workspace
         try:
-            blob = repo.index[path].oid
+            blob = workspace.index[path].oid
         except KeyError:
             name = cls._meta.model_name
             raise exceptions.DoesNotExist("{} with id {} does not exist.".format(name, id))
-        data = repo[blob].data
+        data = workspace.repo[blob].data
         return cls._meta.serializer.deserialize(cls, data)
+

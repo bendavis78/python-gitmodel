@@ -5,7 +5,7 @@ class TestInstancesMixin(object):
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
         from gitmodel.test.fields.models import setup
-        self.models = setup(self.repo)
+        self.models = setup(self.workspace)
 
         self.person = self.models.Person(
             slug = 'john-doe',
@@ -209,7 +209,6 @@ class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
             last_name='Doe',
             email='jdoe@example.com',
             password='secret',
-            last_read=self.post
         )
         user.save()
         # get user
@@ -217,6 +216,8 @@ class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(user_retreived.password, 'secret')
 
     def test_inherited_related_fields(self):
+        self.author.save()
+        self.post.author = self.author
         self.post.save()
         user = self.models.User(
             slug='john-doe',
@@ -229,5 +230,5 @@ class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
         user.save()
         # get user
         user_retreived = self.models.User.get(user.id)
-        self.assertEqual(user_retreived.post, self.post)
+        self.assertEqual(user_retreived.last_read.get_id(), self.post.get_id())
 

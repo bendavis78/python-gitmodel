@@ -1,10 +1,10 @@
 from gitmodel import fields
 
-# Since our repo is instantiated inside the test, we need to wrap our model
+# Since our workspace is instantiated inside the test, we need to wrap our model
 # defintions inside a function
 
-def setup(repo):
-    class Person(repo.GitModel):
+def setup(workspace):
+    class Person(workspace.GitModel):
         slug = fields.SlugField()
         first_name = fields.CharField()
         last_name = fields.CharField()
@@ -17,13 +17,13 @@ def setup(repo):
         wake_up_call = fields.TimeField(required=False)
         date_joined = fields.DateTimeField(required=False)
 
-    class Author(repo.GitModel):
+    class Author(workspace.GitModel):
         first_name = fields.CharField()
         last_name = fields.CharField()
         email = fields.CharField()
         language = fields.CharField(default='en-US')
 
-    class Post(repo.GitModel):
+    class Post(workspace.GitModel):
         author = fields.RelatedField(Author)
         slug = fields.SlugField(id=True)
         title = fields.CharField()

@@ -12,7 +12,7 @@ class GitModelTestCase(unittest.TestCase):
     def setUp(self):
         # For tests, it's easier to use global_config so that we don't
         # have to pass a config object around.
-        from gitmodel.repository import Repository
+        from gitmodel.workspace import Workspace
         from gitmodel import exceptions
         from gitmodel import utils
 
@@ -22,12 +22,11 @@ class GitModelTestCase(unittest.TestCase):
         # Create temporary repo to work from
         repo_path = tempfile.mkdtemp()
         pygit2.init_repository(repo_path, False)
-        self.repo = Repository(repo_path)
+        self.workspace = Workspace(repo_path)
 
     def tearDown(self):
         # clean up test repo
-        shutil.rmtree(self.repo._repo.path)
-
+        shutil.rmtree(self.workspace.repo.path)
 
 def get_module_suite(mod):
     """

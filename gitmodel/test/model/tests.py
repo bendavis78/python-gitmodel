@@ -12,7 +12,7 @@ class TestInstancesMixin(object):
 
         self.exceptions = exceptions
         self.fields = fields
-        self.models = models.setup(self.repo)
+        self.models = models.setup(self.workspace)
         
         self.author = self.models.Author(
             email='jdoe@example.com',
@@ -31,9 +31,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_meta(self):
         self.assertIsNotNone(self.models.Author._meta)
 
-    def test_repo_in_model_meta(self):
-        from gitmodel.repository import Repository
-        self.assertIsInstance(self.models.Author._meta.repo, Repository)
+    def test_workspace_in_model_meta(self):
+        from gitmodel.workspace import Workspace
+        self.assertIsInstance(self.models.Author._meta.workspace, Workspace)
 
     def test_fields_added_to_meta(self):
         fields = [f.name for f in self.models.Author._meta.fields]
@@ -68,7 +68,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.save(commit=True)
         test_oid = self.author.get_oid()
         self.assertIsNotNone(test_oid)
-        obj = self.repo.index[self.author.get_path()]
+        obj = self.workspace.index[self.author.get_path()]
         self.assertEqual(obj.oid, test_oid)
 
     def test_field_default(self):
@@ -79,8 +79,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.save()
 
         # get json from the returned tree using pygit2 code
-        entry = self.repo.index[self.author.get_path()]
-        blob = self.repo[entry.oid]
+        entry = self.workspace.index[self.author.get_path()]
+        blob = self.workspace.repo[entry.oid]
 
         # verify data
         data = json.loads(blob.data)
@@ -98,7 +98,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
             'message': 'Testing save with commit'
         }
         commit_id = self.author.save(commit=True, **commit_info)
-        commit = self.repo[commit_id]
+        commit = self.workspace.repo[commit_id]
 
         # verify commit
         self.assertEqual(commit.author.name, 'John Doe')
@@ -107,7 +107,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
         # get json from the returned tree using pygit2 code
         entry = commit.tree[self.author.get_path()]
-        blob = self.repo[entry.oid]
+        blob = self.workspace.repo[entry.oid]
 
         # verify data
         data = json.loads(blob.data)
@@ -123,23 +123,23 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # Tests a diff when a save is made with no previous commits
         self.maxDiff = None
         self.author.save()
-        self.assertTrue(self.repo.has_changes())
-        blob_hash = self.repo.index[self.author.get_path()].to_object().hex[:7]
+        self.assertTrue(self.workspace.has_changes())
+        blob_hash = self.workspace.index[self.author.get_path()].to_object().hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__), 'diff_nobranch.diff')).read()
         diff = diff.format(self.author.get_path(), blob_hash, self.author.id)
-        self.assertMultiLineEqual(diff, self.repo.diff().patch)
+        self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_diff_branch(self):
         # Tests a diff when a save is made with previous commits
         self.maxDiff = None
         self.author.save(commit=True, message="Test first commit")
-        blob_hash_1 = self.repo.index[self.author.get_path()].to_object().hex[:7]
+        blob_hash_1 = self.workspace.index[self.author.get_path()].to_object().hex[:7]
         self.author.first_name = 'Jane'
         self.author.save()
-        blob_hash_2 = self.repo.index[self.author.get_path()].to_object().hex[:7]
+        blob_hash_2 = self.workspace.index[self.author.get_path()].to_object().hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__), 'diff_branch.diff')).read()
         diff = diff.format(self.author.get_path(), blob_hash_1, blob_hash_2, self.author.id)
-        self.assertMultiLineEqual(diff, self.repo.diff().patch)
+        self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_save_commit_history(self):
         # Test that commited models save correctly
@@ -147,9 +147,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         commit1 = self.author.save(commit=True, message="Test first commit")
         self.author.first_name = 'Jane'
         commit2 = self.author.save(commit=True, message="Changed name to Jane")
-        self.assertEqual(self.repo.branch.commit.oid, commit2)
-        self.assertEqual(self.repo[commit2].parents[0].oid, commit1)
-        commits = [c for c in self.repo._repo.walk(self.repo.branch.oid, pygit2.GIT_SORT_TIME)]
+        self.assertEqual(self.workspace.branch.commit.oid, commit2)
+        self.assertEqual(self.workspace.repo[commit2].parents[0].oid, commit1)
+        commits = [c for c in self.workspace.repo.walk(self.workspace.branch.oid, pygit2.GIT_SORT_TIME)]
         self.assertEqual(commits[0].oid, commit2)
         self.assertEqual(commits[1].oid, commit1)
 
