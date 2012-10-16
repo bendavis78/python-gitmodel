@@ -65,9 +65,11 @@ class Workspace(object):
             start_point_ref = self.repo.lookup_reference(start_point)
         except KeyError:
             raise exceptions.RepositoryError("Reference not found: {}".format(start_point))
-        branch_ref  = 'refs/heads/{}'.format(name)
-        self.repo.create_reference(branch_ref, start_point_ref.commit)
 
+        if start_point_ref.type != pygit2.GIT_OBJ_COMMIT:
+            raise ValueError('Given reference must point to a commit')
+        branch_ref  = 'refs/heads/{}'.format(name)
+        self.repo.create_reference(branch_ref, start_point_ref.oid)
 
     def set_branch(self, name):
         """
@@ -76,7 +78,7 @@ class Workspace(object):
         ref  = 'refs/heads/{}'.format(name)
         try:
             self.repo.lookup_reference(ref)
-        except IndexError:
+        except KeyError:
             raise exceptions.RepositoryError("Reference not found: {}".format(ref))
         self.update_index(ref)
 
@@ -95,7 +97,7 @@ class Workspace(object):
             raise exceptions.RepositoryError(msg)
         try:
             self.repo.lookup_reference(ref)
-        except IndexError:
+        except KeyError:
             raise exceptions.RepositoryError("Reference not found: {}".format(ref))
         self.head = ref
         self.index = self.branch.tree
@@ -129,7 +131,7 @@ class Workspace(object):
         if self.has_changes():
             msg = "Repository has pending changes. Cannot auto-commit until "\
                   "pending changes have been comitted."
-            raise exceptions.RepostoryError(msg)
+            raise exceptions.RepositoryError(msg)
 
         yield
 
