@@ -128,8 +128,6 @@ and saving instances will work.
 
 TODO
 ----
-* Relational fields
-* Field validation
 * Caching
 * Indexing
 * Query API
