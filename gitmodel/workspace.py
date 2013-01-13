@@ -16,8 +16,10 @@ class Workspace(object):
     
     In contrast to a working directory, this class does not make use of the repository's 
     INDEX and HEAD files, and instead keeps track of the these in memory.
+
+    Passing default_branch will 
     """
-    def __init__(self, repo_path):
+    def __init__(self, repo_path, initial_branch='refs/head/smaster'):
         self.config = conf.Config()
         try:
             self.repo = pygit2.Repository(repo_path)
@@ -28,7 +30,7 @@ class Workspace(object):
         self.index = None
         
         # set default head
-        self.head = self.config.DEFAULT_BRANCH
+        self.head = initial_branch
          
         # Set branch to head. If it the branch (head commit) doesn't exist, set
         # index to a new empty tree.
@@ -84,6 +86,7 @@ class Workspace(object):
 
     @property
     def branch(self):
+        #FIXME: this is expensive (and dumb).
         try:
             return Branch(self.repo, self.head)
         except KeyError:
