@@ -38,16 +38,21 @@ Basic model creation:
 
 .. code:: python
 
-  from gitmodel.repository import Repository
+  from gitmodel.workspace import Workspace
   from gitmodel import fields
   
-  repo = Repository('path/to/my-repo/.git')
+  ws = Workspace('path/to/my-repo/.git')
 
-  class Page(repo.GitModel):
+  class Page(ws.GitModel):
       slug = fields.SlugField() 
       title = fields.CharField()
       content = fields.CharField()
       published = fields.BooleanField(default=True)
+
+The Workspace can be thought of as your git working directory. It also acts as
+the "porcelain" layer to pygit2's "plumbing". In contrast to a working
+directory, the Workspace class does not make use of the repository's INDEX and
+HEAD files, and instead keeps track of these in memory.
 
 Saving objects:
 
@@ -66,28 +71,28 @@ your model acts as the ID field, for example:
 
 .. code:: python
 
-  class Page(repo.GitModel):
+  class Page(ws.GitModel):
       slug = fields.SlugField(id=True)
   
   # OR
 
-  class Page(repo.GitModel):
+  class Page(ws.GitModel):
       slug = fields.SlugField()
 
       class Meta:
           id_field = 'slug'
  
-Objects are not committed to the repository by default. They are, however,  
-written into the object database as trees and blobs. The ``repo.index`` object 
-is a ``pygit2.Tree`` that holds the uncommitted data. It's analagous to Git's 
-index, except that the pointer is stored in memory. 
+Objects are not committed to the repository by default. They are, however,
+written into the object database as trees and blobs. The ``Workspace.index``
+object is a ``pygit2.Tree`` that holds the uncommitted data. It's analagous to
+Git's index, except that the pointer is stored in memory. 
 
 Creating commits is simple:
 
 .. code:: python
   
   oid = page.save(commit=True, message='Added an example page')
-  commit = repo[oid] # a pygit2.Commit object
+  commit = ws.repo[oid] # a pygit2.Commit object
   print(commit.message)
 
 You can access previous commits using pygit2, and even view diffs between two
@@ -96,11 +101,11 @@ versions of an object.
 .. code:: python
   
   # walking commits
-  for commit in repo.walk():
+  for commit in ws.walk():
       print("{}: {}".format(commit.hex, commit.message)) 
   
   # get a diff between two commits
-  head_commit = repo.branch.commit
+  head_commit = ws.branch.commit
   prev_commit_oid = head_commit.parents[0]
   print(prev_commit.diff(head_commit))
 
