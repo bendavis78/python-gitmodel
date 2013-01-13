@@ -20,13 +20,13 @@ class GitModelTestCase(unittest.TestCase):
         self.utils = utils
 
         # Create temporary repo to work from
-        repo_path = tempfile.mkdtemp()
-        pygit2.init_repository(repo_path, False)
-        self.workspace = Workspace(repo_path)
+        self.repo_path = tempfile.mkdtemp(prefix='python-gitmodel-')
+        pygit2.init_repository(self.repo_path, False)
+        self.workspace = Workspace(self.repo_path)
 
     def tearDown(self):
         # clean up test repo
-        shutil.rmtree(self.workspace.repo.path)
+        shutil.rmtree(self.repo_path)
 
 def get_module_suite(mod):
     """
