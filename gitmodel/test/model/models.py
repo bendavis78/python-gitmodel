@@ -1,22 +1,22 @@
 from gitmodel import fields
-from gitmodel.models import GitModelBase
+from gitmodel.models import GitModel
 
 
-class Author(GitModelBase):
+class Author(GitModel):
     first_name = fields.CharField()
     last_name = fields.CharField()
     email = fields.CharField()
     language = fields.CharField(default='en-US')
 
 
-class Post(GitModelBase):
+class Post(GitModel):
     slug = fields.SlugField(id=True)
     title = fields.CharField()
     body = fields.CharField()
     image = fields.BlobField(required=False)
 
 
-class Person(GitModelBase):
+class Person(GitModel):
     first_name = fields.CharField()
     last_name = fields.CharField()
     email = fields.EmailField()
@@ -35,7 +35,7 @@ def make_path_custom(opts, object_id):
     return os.path.join(model_name, unicode(object_id), 'data.json')
 
 
-class PostAlternate(GitModelBase):
+class PostAlternate(GitModel):
     slug = fields.SlugField()
     title = fields.CharField()
 

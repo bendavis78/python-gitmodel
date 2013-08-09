@@ -1,3 +1,4 @@
+import copy
 import decimal
 import os
 import re
@@ -54,9 +55,14 @@ class Field(object):
         Field.creation_counter += 1
 
     def contribute_to_class(self, cls, name):
-        self.name = name
-        self.model = cls
-        cls._meta.add_field(self)
+        field = self
+        field.name = name
+        # if this field has already been assigned to a model, assign a shallow
+        # copy of it instead.
+        if field.model:
+            field = copy.copy(field)
+        field.model = cls
+        cls._meta.add_field(field)
 
     def has_default(self):
         """Returns a boolean of whether this field has a default value."""
@@ -117,10 +123,11 @@ class Field(object):
         self.validate(value, model_instance)
         return value
 
-    def serialize(self, obj, value):
+    def serialize(self, obj):
         """
         Returns a python value used for serialization.
         """
+        value = getattr(obj, self.name)
         return self.to_python(value)
 
     def deserialize(self, data, value):
@@ -220,7 +227,7 @@ class BlobField(Field):
 
     def _get_path(self, instance):
         from gitmodel import models
-        if isinstance(instance, models.GitModelBase):
+        if isinstance(instance, models.GitModel):
             path = instance.get_path()
         else:
             id_field = self.model._meta.id_field
@@ -414,10 +421,13 @@ class RelatedFieldDescriptor(object):
         self.id = None
 
     def __get__(self, instance, instance_type=None):
+        from gitmodel import models
         if instance is None:
             return self
         value = instance.__dict__[self.field.name]
-        return self.field.to_python(value)
+        if value is None or isinstance(value, models.GitModel):
+            return value
+        return self.field.to_model.get(value)
 
     def __set__(self, instance, value):
         instance.__dict__[self.field.name] = value
@@ -430,13 +440,9 @@ class RelatedField(Field):
 
     def to_python(self, value):
         from gitmodel import models
-        if value is None:
-            return value
-
-        if isinstance(value, models.GitModelBase):
-            return value
-
-        return self.to_model.get(value)
+        if isinstance(value, models.GitModel):
+            return value.get_id()
+        return value
 
     def _get_val_from_obj(self, obj):
         if obj is not None:
@@ -444,11 +450,21 @@ class RelatedField(Field):
         else:
             return self.default
 
-    def serialize(self, obj, value):
-        if value is not None:
-            return value.get_id()
-        return value
+    def serialize(self, obj):
+        value = obj.__dict__[self.name]
+        return self.to_python(value)
 
     def contribute_to_class(self, cls, name):
         super(RelatedField, self).contribute_to_class(cls, name)
+        if hasattr(cls, '_meta'):
+            # if the class is being created with a workspace, make sure our
+            # to_model is registered with a workspace and that we point to that
+            # new model
+            workspace = cls._meta.workspace
+            if workspace.models.get(self.to_model.__name__):
+                self.to_model = workspace.models[self.to_model.__name__]
+            else:
+                self.to_model = workspace.register_model(self.to_model)
+            if not workspace.models.get(self.to_model.__name__):
+                self.to_model = workspace.regster_model(self.to_model)
         setattr(cls, name, RelatedFieldDescriptor(self))

@@ -31,6 +31,10 @@ class TestInstancesMixin(object):
 
 class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
+    def test_type(self):
+        author = self.models.Author()
+        self.assertIsInstance(author, self.models.GitModel)
+
     def test_meta(self):
         self.assertIsNotNone(self.models.Author._meta)
 

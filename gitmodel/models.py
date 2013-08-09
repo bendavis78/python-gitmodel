@@ -130,32 +130,32 @@ class GitModelOptions(object):
 
 class DeclarativeMetaclass(type):
     def __new__(cls, name, bases, attrs):
+        super_new = super(DeclarativeMetaclass, cls).__new__
+
         parents = [b for b in bases if isinstance(b, DeclarativeMetaclass)]
         parents.reverse()
 
-        # Create the class, while leaving out the declared attributes
-        module = attrs.pop('__module__')
-        options_cls = attrs.pop('__optclass__', None)
-        super_new = super(DeclarativeMetaclass, cls).__new__
-        new_class = super_new(cls, name, bases, {'__module__': module})
-
-        # ensure initialization is only performed on GitModel subclasses.
-        if name == 'GitModel' and not parents:
-            return new_class
+        if not parents:
+            # Don't do anything special for the base GitModel
+            return super_new(cls, name, bases, attrs)
 
         # workspace that will be passed to GitModelOptions
         workspace = attrs.pop('__workspace__', None)
 
         # inherit parent workspace if not provided
         if not workspace:
-            for parent in parents:
-                if isinstance(parent, DeclarativeMetaclass):
-                    workspace = parent._meta.workspace
-                    continue
+            if len(parents) > 0 and hasattr(parents[0], '_meta'):
+                workspace = parents[0]._meta.workspace
 
+        # don't do anything special for GitModels without a workspace
         if not workspace:
-            msg = "GitModel subclasses must have a __workspace__ attribute"
-            raise exceptions.GitModelError(msg)
+            return super_new(cls, name, bases, attrs)
+
+        # Create the new class, while leaving out the declared attributes
+        # which will be added later
+        module = attrs.pop('__module__')
+        options_cls = attrs.pop('__optclass__', None)
+        new_class = super_new(cls, name, bases, {'__module__': module})
 
         # grab the declared Meta
         meta = attrs.pop('Meta', None)
@@ -166,7 +166,7 @@ class DeclarativeMetaclass(type):
         # Add _meta to the new class. The _meta property is an instance of
         # GitModelOptions, based off of the optional declared "Meta" class
         if options_cls is None:
-            if len(parents) > 0:
+            if len(parents) > 0 and hasattr(parents[0], '_meta'):
                 options_cls = parents[0]._meta.__class__
             else:
                 options_cls = GitModelOptions
@@ -234,31 +234,25 @@ class DeclarativeMetaclass(type):
             setattr(cls, name, value)
 
 
-def gmclassmethod(func):
+def requires_meta(func):
     @functools.wraps(func)
     def inner(cls, *args, **kwargs):
-        if not isinstance(cls, DeclarativeMetaclass):
-            msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} has "
-                   "not been initialized with the appropriate metaclass. You "
-                   "must either extend GitModel or register the model with a "
-                   "workspace.")
+        # this should work for classmethods as well as instance methods
+        if not isinstance(cls, type):
+            cls = cls.__class__
+        if not hasattr(cls, '_meta'):
+            msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
+                   "has not been created with a workspace")
             raise exceptions.GitModelError(msg.format(cls, func))
         return func(cls, *args, **kwargs)
-    return classmethod(inner)
+    return inner
 
 
-class GitModelBase(object):
+class GitModel(object):
+    __metaclass__ = DeclarativeMetaclass
     __workspace__ = None
 
     def __init__(self, **kwargs):
-        if not isinstance(self.__class__, DeclarativeMetaclass):
-            msg = ("{0!r} cannot be instantiated because it has not been "
-                   "initialized with the appropriate metaclass. You must "
-                   "either extend GitModel or register this class with a "
-                   "workspace.")
-
-            raise exceptions.GitModelError(msg.format(self.__class__))
-
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
         for field in self._meta.fields:
@@ -286,7 +280,7 @@ class GitModelBase(object):
                 msg = "'{0}' is an invalid keyword argument for this function"
                 raise TypeError(msg.format(kwargs.keys()[0]))
 
-        super(GitModelBase, self).__init__()
+        super(GitModel, self).__init__()
 
     def save(self, commit=False, **commit_info):
         # make sure model has clean data
@@ -356,7 +350,7 @@ class GitModelBase(object):
         with self._meta.workspace.lock(self.get_id()):
             yield
 
-    @gmclassmethod
+    @classmethod
     def get(cls, id):
         """
         Gets the object associated with the given id
@@ -371,7 +365,3 @@ class GitModelBase(object):
             raise exceptions.DoesNotExist(msg)
         data = workspace.repo[blob].data
         return cls._meta.serializer.deserialize(cls, data)
-
-
-class GitModel(GitModelBase):
-    __metaclass__ = DeclarativeMetaclass

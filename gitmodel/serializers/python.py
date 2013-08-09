@@ -14,9 +14,8 @@ def serialize(obj, fields):
     pyobj = {}
     for field in obj._meta.fields:
         if fields is None or field.name in fields:
-            value = getattr(obj, field.name)
             if field.serializable:
-                pyobj[field.name] = field.serialize(obj, value)
+                pyobj[field.name] = field.serialize(obj)
     return pyobj
 
 

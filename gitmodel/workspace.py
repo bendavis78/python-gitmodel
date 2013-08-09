@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 from importlib import import_module
 from time import time
-import copy
 import logging
 import os
 
@@ -9,7 +8,6 @@ import pygit2
 
 from gitmodel import conf
 from gitmodel import exceptions
-from gitmodel import fields
 from gitmodel import models
 from gitmodel.utils import git
 
@@ -59,63 +57,55 @@ class Workspace(object):
             self.update_index(self.head)
 
         # add a base GitModel which can be extended if needed
-        self.register_model(models.GitModelBase, 'GitModel')
+        self.register_model(models.GitModel, 'GitModel')
 
         self.log = logging.getLogger(__name__)
 
     def register_model(self, cls, name=None):
         """
-        Register a GitModelBase class with this workspace. Only classes that do
-        not extend GitModel (ie, have not yet been metaclassed) can be
-        registered. Registering with the workspace will create the appropriate
-        metaclass and will store the resulting GitModel instance in the
-        workspace's ``models`` attribute.
+        Register a GitModel class with this workspace. A GitModel cannot be
+        used until it is registered with a workspace. This does not alter the
+        origingal class, but rather creates a "clone" which is bound to this
+        workspace. If a model attribute requires special handling for the
+        cloning, that object should define a "contribute_to_class" method.
+
+        Note that when a GitModel with any RelatedFields is registered, its
+        related models will be automatically registered with the same workspace
+        if they have not already been registered with a workspace.
         """
+        if not issubclass(cls, models.GitModel):
+            raise TypeError("{0!r} is not a GitModel.".format(cls))
+
         if not name:
             name = cls.__name__
 
         if self.models.get(name):
             return self.models[name]
 
-        if isinstance(cls, models.DeclarativeMetaclass):
+        if hasattr(cls, '_meta'):
             msg = "{0} is already registered with a workspace"
             raise ValueError(msg.format(cls.__name__))
 
         metaclass = models.DeclarativeMetaclass
         attrs = dict(cls.__dict__, **{
             '__workspace__': self,
-            '__module__': __name__,
         })
+        if not attrs.get('__module__'):
+            attrs['__module__'] == __name__
+
         if attrs.get('__dict__'):
             del attrs['__dict__']
 
-        # parents must also be initialized with the metaclass
-        bases = []
+        # the cloned model must subclass the original so as not to break
+        # type-checking operations
+        bases = [cls]
+
+        # parents must also be registered with the workspace
         for base in cls.__bases__:
-            if not isinstance(base, models.DeclarativeMetaclass) \
-                    and issubclass(base, models.GitModelBase) \
-                    and base != models.GitModelBase:
+            if issubclass(base, models.GitModel) and \
+                    not hasattr(base, '_meta'):
                 base = self.models.get(name) or self.register_model(base)
             bases.append(base)
-
-        # any related fields need to be updated so that they point to the
-        # correct model on the workspace
-        for attname, attr in attrs.iteritems():
-            if not isinstance(attr, fields.RelatedField):
-                continue
-
-            # make a shallow copy of the field and "reset" it
-            attrs[attname] = copy.copy(attr)
-            attrs[attname].model = None
-
-            # if the target model already has a workspace don't update it
-            if issubclass(attr.to_model, models.DeclarativeMetaclass):
-                continue
-
-            # register to_model on this workspace
-            to_model = self.models.get(attr.to_model.__name__) or \
-                self.register_model(attr.to_model)
-            attrs[attname].to_model = to_model
 
         # create the new class and attach it to the workspace
         new_model = metaclass(name, tuple(bases), attrs)
@@ -134,8 +124,10 @@ class Workspace(object):
         for name in dir(mod):
             item = getattr(mod, name)
             if isinstance(item, type) and \
-                    issubclass(item, models.GitModelBase):
+                    issubclass(item, models.GitModel):
                 self.register_model(item, name)
+
+        return self.models
 
     def create_blob(self, content):
         return self.repo.create_blob(content)
@@ -174,7 +166,7 @@ class Workspace(object):
 
     @property
     def branch(self):
-        #FIXME: this is expensive (and dumb).
+        # TODO: use pygit2's new Branch class
         try:
             return Branch(self.repo, self.head)
         except KeyError:
@@ -283,9 +275,9 @@ class Workspace(object):
             else:
                 parents = [parent_ref.oid]
 
-        # FIXME: create_commit updates the HEAD ref. This may lead to race
-        # conditions. As long as HEAD isn't used for anything in the system, it
-        # shouldn't be a problem.
+        # FIXME: create_commit updates the HEAD ref. HEAD isn't used in
+        # gitmodel, however it would be prudent to make sure it doesn't
+        # get changed. Possibly need to just restore it after the commit
         return self.repo.create_commit(ref, author, committer, message,
                                        tree.oid, parents)
 

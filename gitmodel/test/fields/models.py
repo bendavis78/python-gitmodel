@@ -2,7 +2,7 @@ from gitmodel import fields
 from gitmodel import models
 
 
-class Person(models.GitModelBase):
+class Person(models.GitModel):
     slug = fields.SlugField()
     first_name = fields.CharField()
     last_name = fields.CharField()
@@ -16,14 +16,14 @@ class Person(models.GitModelBase):
     date_joined = fields.DateTimeField(required=False)
 
 
-class Author(models.GitModelBase):
+class Author(models.GitModel):
     first_name = fields.CharField()
     last_name = fields.CharField()
     email = fields.CharField()
     language = fields.CharField(default='en-US')
 
 
-class Post(models.GitModelBase):
+class Post(models.GitModel):
     author = fields.RelatedField(Author)
     slug = fields.SlugField(id=True)
     title = fields.CharField()

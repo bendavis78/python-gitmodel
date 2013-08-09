@@ -20,10 +20,10 @@ class GitModelWorkspaceTest(GitModelTestCase):
                               DeclarativeMetaclass)
 
     def test_register_model(self):
-        from gitmodel.models import GitModelBase, DeclarativeMetaclass
+        from gitmodel.models import GitModel, DeclarativeMetaclass
         from gitmodel import fields
 
-        class TestModel(GitModelBase):
+        class TestModel(GitModel):
             foo = fields.CharField()
             bar = fields.CharField()
 

@@ -7,8 +7,7 @@ class TestInstancesMixin(object):
         super(TestInstancesMixin, self).setUp()
 
         from gitmodel.test.fields import models
-        self.workspace.import_models(models)
-        self.models = self.workspace.models
+        self.models = self.workspace.import_models(models)
 
         self.person = self.models.Person(
             slug='john-doe',
