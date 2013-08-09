@@ -14,6 +14,9 @@ aren't limited to storing source code in git. The goal of this project is to
 provide an object-level interface to use git as a schema-less data store, as
 well as tools that take advantage of git's powerful versioning capabilities.
 
+python-gitmodel allows you to model your data using python, and provides an
+easy-to-use interface for storing that data as git objects.
+
 python-gitmodel is based on `libgit2`_, a pure C implementation of the Git core
 methods. This means that instead of calling git commands via shell, we get
 to use git at native speed.
@@ -133,10 +136,9 @@ and saving instances will work.
 
 TODO
 ----
-* Caching
-* Indexing
-* Query API
-* Versioning utilities (branching/merging)
+* Caching?
+* Indexing?
+* Query API?
 * Full documentation
 
 -------------------------------------------------------------------------------
