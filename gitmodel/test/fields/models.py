@@ -1,6 +1,7 @@
 from gitmodel import fields
 from gitmodel import models
 
+
 class Person(models.GitModelBase):
     slug = fields.SlugField()
     first_name = fields.CharField()
@@ -14,11 +15,13 @@ class Person(models.GitModelBase):
     wake_up_call = fields.TimeField(required=False)
     date_joined = fields.DateTimeField(required=False)
 
+
 class Author(models.GitModelBase):
     first_name = fields.CharField()
     last_name = fields.CharField()
     email = fields.CharField()
     language = fields.CharField(default='en-US')
+
 
 class Post(models.GitModelBase):
     author = fields.RelatedField(Author)
@@ -26,6 +29,7 @@ class Post(models.GitModelBase):
     title = fields.CharField()
     body = fields.CharField()
     image = fields.BlobField(required=False)
+
 
 class User(Person):
     password = fields.CharField()

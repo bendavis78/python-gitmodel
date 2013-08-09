@@ -3,6 +3,7 @@ import functools
 from bisect import bisect
 from contextlib import contextmanager
 from importlib import import_module
+
 from gitmodel import exceptions
 from gitmodel import fields
 
@@ -66,7 +67,7 @@ class GitModelOptions(object):
 
     def add_field(self, field):
         """ Insert a field into the fields list in correct order """
-        # bisect calls field.__cmp__ which uses field.creation_counter to 
+        # bisect calls field.__cmp__ which uses field.creation_counter to
         # maintain the correct order
         position = bisect(self.local_fields, field)
         self.local_fields.insert(position, field)
@@ -93,8 +94,8 @@ class GitModelOptions(object):
         for field in self.fields:
             if field.name == name:
                 return field
-        msg = "Field not '{}' not found on model '{}'".format(name, self.model_name)
-        raise exceptions.FieldError(msg)
+        msg = "Field not '{}' not found on model '{}'"
+        raise exceptions.FieldError(msg.format(name, self.model_name))
 
     def _fill_fields_cache(self):
         """
@@ -114,7 +115,8 @@ class GitModelOptions(object):
         if self.id_field is None:
             declared_id_fields = [f for f in self.fields if f.id]
             if len(declared_id_fields) > 1:
-                raise exceptions.ConfigurationError("You may only have one id field per model")
+                msg = "You may only have one id field per model"
+                raise exceptions.ConfigurationError(msg)
             elif len(declared_id_fields) == 1:
                 self.id_field = declared_id_fields[0].name
             else:
@@ -161,7 +163,7 @@ class DeclarativeMetaclass(type):
             # if not declared, make sure we use base's meta
             meta = getattr(new_class, 'Meta', None)
 
-        # Add _meta to the new class. The _meta property is an instance of 
+        # Add _meta to the new class. The _meta property is an instance of
         # GitModelOptions, based off of the optional declared "Meta" class
         if options_cls is None:
             if len(parents) > 0:
@@ -200,7 +202,7 @@ class DeclarativeMetaclass(type):
         for field in parent._meta.local_fields:
             if not field.autocreated and field.name in local_field_names:
                 msg = ('Duplicate field name "{0}" in {1!r} already exists in '
-                      'parent model {2!r}')
+                       'parent model {2!r}')
                 msg = msg.format(field.name, child.__name__, parent.__name__)
                 raise exceptions.FieldError(msg)
 
@@ -208,18 +210,18 @@ class DeclarativeMetaclass(type):
         for p in parent._meta.parents:
             parent._check_parent_fields(p, child)
 
-
     def _prepare(cls):
         """
         Prepares the class once cls._meta has been populated.
         """
         opts = cls._meta
         opts._prepare(cls)
-        
+
         # Give the class a docstring
         if cls.__doc__ is None:
-            cls.__doc__ = "{}({})".format(cls.__name__, ', '.join(f.name for f in opts.fields))
-    
+            fields = ', '.join(f.name for f in opts.fields)
+            cls.__doc__ = "{}({})".format(cls.__name__, fields)
+
     def add_to_class(cls, name, value):
         """
         If the given value defines a ``contribute_to_class`` method, that will
@@ -254,7 +256,8 @@ class GitModelBase(object):
                    "initialized with the appropriate metaclass. You must "
                    "either extend GitModel or register this class with a "
                    "workspace.")
-            raise GitModelError(msg.format(self.__class__))
+
+            raise exceptions.GitModelError(msg.format(self.__class__))
 
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
@@ -272,7 +275,7 @@ class GitModelBase(object):
 
         # Handle any remaining keyword arguments
         if kwargs:
-            # only set attributes for properties that already exist on the class
+            # only set attrs for properties that already exist on the class
             for prop in kwargs.keys():
                 try:
                     if isinstance(getattr(self.__class__, prop), property):
@@ -280,7 +283,8 @@ class GitModelBase(object):
                 except AttributeError:
                     pass
             if kwargs:
-                raise TypeError("'{}' is an invalid keyword argument for this function".format(kwargs.keys()[0]))
+                msg = "'{0}' is an invalid keyword argument for this function"
+                raise TypeError(msg.format(kwargs.keys()[0]))
 
         super(GitModelBase, self).__init__()
 
@@ -292,8 +296,8 @@ class GitModelBase(object):
 
         workspace = self._meta.workspace
 
-
-        # only allow commit-during-save if workspace doesn't have pending changes.
+        # only allow commit-during-save if workspace doesn't have pending
+        # changes.
         if commit and workspace.has_changes():
             msg = "Repository has pending changes. Cannot auto-commit until "\
                   "pending changes have been comitted."
@@ -344,7 +348,6 @@ class GitModelBase(object):
         self.clean_fields()
         self.clean()
 
-
     @contextmanager
     def lock(self):
         """
@@ -364,11 +367,11 @@ class GitModelBase(object):
             blob = workspace.index[path].oid
         except KeyError:
             name = cls._meta.model_name
-            raise exceptions.DoesNotExist("{} with id {} does not exist.".format(name, id))
+            msg = "{} with id {} does not exist.".format(name, id)
+            raise exceptions.DoesNotExist(msg)
         data = workspace.repo[blob].data
         return cls._meta.serializer.deserialize(cls, data)
 
 
 class GitModel(GitModelBase):
     __metaclass__ = DeclarativeMetaclass
-    

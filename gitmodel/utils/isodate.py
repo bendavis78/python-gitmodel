@@ -11,8 +11,14 @@ ISO_DATETIME_RE = re.compile(r'^(\d{4}-\d{1,2}-\d{1,2}[T\s]\d{1,2}:\d{2})(:'
                              r'\d{2}?)?$')
 TZ_RE = re.compile(r'([+-])(\d{1,2}):?(\d{2})?')
 
-class InvalidFormat(Exception): pass
-class InvalidDate(Exception): pass
+
+class InvalidFormat(Exception):
+    pass
+
+
+class InvalidDate(Exception):
+    pass
+
 
 def parse_iso_date(value):
     #NEEDS-TEST
@@ -22,6 +28,7 @@ def parse_iso_date(value):
         return datetime(*time.strptime(value, '%Y-%m-%d')[:3]).date()
     except ValueError:
         raise InvalidDate('invalid date: "{}"'.format(value))
+
 
 def parse_tz(tzstr):
     #NEEDS-TEST
@@ -40,6 +47,7 @@ def parse_tz(tzstr):
         tzinfo = tz.tzoffset(None, tzseconds)
     return tzinfo
 
+
 def parse_iso_datetime(value):
     #NEEDS-TEST
     match = ISO_DATETIME_RE.match(value)
@@ -48,17 +56,17 @@ def parse_iso_datetime(value):
 
     # split out into datetime, secs, usecs, and tz
     dtstr = match.group(1)
-    secs  = match.group(3)
+    secs = match.group(3)
     usecs = match.group(4)
     tzstr = match.group(5)
-    
+
     # replace the "T" if given
     dtstr = dtstr.replace('T', ' ')
     try:
         dt_args = time.strptime(dtstr, '%Y-%m-%d %H:%M')[:5]
     except ValueError:
         raise InvalidDate('invalid date: "{}"'.format(value))
-    
+
     # append seconds, usecs, and tz
     dt_args += (int(secs) if secs else 0,)
     dt_args += (int(usecs.lstrip('.')) if usecs else 0,)
@@ -69,6 +77,7 @@ def parse_iso_datetime(value):
     except ValueError:
         raise InvalidDate('invalid date: "{}"'.format(value))
 
+
 def parse_iso_time(value):
     #NEEDS-TEST
     match = ISO_TIME_RE.match(value)
@@ -77,7 +86,7 @@ def parse_iso_time(value):
 
     # split out into time, secs, usecs, and tz
     tmstr = match.group(1)
-    secs  = match.group(3)
+    secs = match.group(3)
     usecs = match.group(4)
     tzstr = match.group(5)
 

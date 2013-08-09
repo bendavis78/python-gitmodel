@@ -5,6 +5,7 @@ import datetime
 import types
 from decimal import Decimal
 
+
 class GitModelUnicodeDecodeError(UnicodeDecodeError):
     def __init__(self, obj, *args):
         self.obj = obj
@@ -12,8 +13,9 @@ class GitModelUnicodeDecodeError(UnicodeDecodeError):
 
     def __str__(self):
         original = UnicodeDecodeError.__str__(self)
-        return '%s. You passed in %r (%s)' % (original, self.obj,
-                type(self.obj))
+        msg = '{0}. You passed in {1!r} ({2})'
+        return msg.format(original, self.obj, type(self.obj))
+
 
 def is_protected_type(obj):
     """Determine if the object instance is of a protected type.
@@ -27,6 +29,7 @@ def is_protected_type(obj):
         datetime.datetime, datetime.date, datetime.time,
         float, Decimal)
     )
+
 
 def force_unicode(s, encoding='utf-8', strings_only=False, errors='strict'):
     """
@@ -59,7 +62,7 @@ def force_unicode(s, encoding='utf-8', strings_only=False, errors='strict'):
                     # approximation to what the Exception's standard str()
                     # output should be.
                     s = u' '.join([force_unicode(arg, encoding, strings_only,
-                            errors) for arg in s])
+                                  errors) for arg in s])
         elif not isinstance(s, unicode):
             # Note: We use .decode() here, instead of unicode(s, encoding,
             # errors), so that if s is a SafeString, it ends up being a
@@ -75,6 +78,5 @@ def force_unicode(s, encoding='utf-8', strings_only=False, errors='strict'):
             # further exception by individually forcing the exception args
             # to unicode.
             s = u' '.join([force_unicode(arg, encoding, strings_only,
-                    errors) for arg in s])
+                          errors) for arg in s])
     return s
-

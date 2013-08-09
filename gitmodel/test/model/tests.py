@@ -2,10 +2,11 @@ import os
 import json
 from gitmodel.test import GitModelTestCase
 
+
 class TestInstancesMixin(object):
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
-        
+
         from gitmodel.test.model import models
         from gitmodel import exceptions
         from gitmodel import fields
@@ -26,6 +27,7 @@ class TestInstancesMixin(object):
             title='Test Post',
             body='Lorem ipsum dolor sit amet',
         )
+
 
 class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
@@ -48,7 +50,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_has_id_field(self):
         self.assertIsNotNone(self.author._meta.id_field)
-    
+
     def test_id(self):
         self.assertTrue(hasattr(self.author, 'id'))
 
@@ -63,7 +65,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_get_path(self):
         self.author.save()
         path = self.author.get_path()
-        self.assertEqual(path, 'author/{}/data.json'.format(self.author.get_id()))
+        test_path = 'author/{}/data.json'.format(self.author.get_id())
+        self.assertEqual(path, test_path)
 
     def test_get_oid(self):
         self.author.save(commit=True)
@@ -95,7 +98,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_save_commit(self):
         commit_info = {
-            'author': ('John Doe', 'jdoe@example.com'), 
+            'author': ('John Doe', 'jdoe@example.com'),
             'message': 'Testing save with commit'
         }
         commit_id = self.author.save(commit=True, **commit_info)
@@ -126,7 +129,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.save()
         self.assertTrue(self.workspace.has_changes())
         blob_hash = self.workspace.index[self.author.get_path()].hex[:7]
-        diff = open(os.path.join(os.path.dirname(__file__), 'diff_nobranch.diff')).read()
+        diff = open(os.path.join(os.path.dirname(__file__),
+                                 'diff_nobranch.diff')).read()
         diff = diff.format(self.author.get_path(), blob_hash, self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
@@ -138,8 +142,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.first_name = 'Jane'
         self.author.save()
         blob_hash_2 = self.workspace.index[self.author.get_path()].hex[:7]
-        diff = open(os.path.join(os.path.dirname(__file__), 'diff_branch.diff')).read()
-        diff = diff.format(self.author.get_path(), blob_hash_1, blob_hash_2, self.author.id)
+        diff = open(os.path.join(os.path.dirname(__file__),
+                                 'diff_branch.diff')).read()
+        diff = diff.format(self.author.get_path(), blob_hash_1, blob_hash_2,
+                           self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_save_commit_history(self):
@@ -150,7 +156,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         commit2 = self.author.save(commit=True, message="Changed name to Jane")
         self.assertEqual(self.workspace.branch.commit.oid, commit2)
         self.assertEqual(self.workspace.repo[commit2].parents[0].oid, commit1)
-        commits = [c for c in self.workspace.repo.walk(self.workspace.branch.oid, pygit2.GIT_SORT_TIME)]
+        walktree = self.workspace.repo.walk(self.workspace.branch.oid,
+                                            pygit2.GIT_SORT_TIME)
+        commits = [c for c in walktree]
         self.assertEqual(commits[0].oid, commit2)
         self.assertEqual(commits[1].oid, commit1)
 
@@ -170,10 +178,11 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_id_validator(self):
         # "/" and "\0" are both invalid characters
-        self.author.id='foo/bar'
+        self.author.id = 'foo/bar'
         with self.assertRaises(self.exceptions.ValidationError):
             self.author.save()
-        self.author.id='foo\000bar'
+
+        self.author.id = 'foo\000bar'
         with self.assertRaises(self.exceptions.ValidationError):
             self.author.save()
 
@@ -186,7 +195,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # id should resolve to the slug field, since slug is marked as id=True
         self.post.save()
         self.assertEqual(self.post.get_id(), self.post.slug)
-    
+
     def test_basic_inheritance(self):
         fields = [f.name for f in self.models.User._meta.fields]
         self.assertEqual(fields, [
@@ -212,8 +221,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_make_path_override(self):
         post = self.models.PostAlternate(slug='foobar', title='Foobar')
         post.save()
-        self.assertEqual(post.get_path(), 'post-alt/foobar/data.json') 
-        
+        self.assertEqual(post.get_path(), 'post-alt/foobar/data.json')
+
     def test_commit_when_pending_changes(self):
         self.author.save()
         self.author.first_name = 'Jane'
@@ -227,4 +236,3 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         post_id = self.post.get_id()
         self.assertEqual(author_id, self.models.Author.get(author_id).get_id())
         self.assertEqual(post_id, self.models.Post.get(post_id).get_id())
-

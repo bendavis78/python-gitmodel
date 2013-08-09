@@ -1,17 +1,20 @@
-import re
-import os
-import uuid
 import decimal
+import os
+import re
+import uuid
 from datetime import datetime, date, time
 from StringIO import StringIO
+
 from gitmodel.utils import isodate
 from gitmodel.exceptions import ValidationError
+
+INVALID_PATH_CHARS = ('/', '\000')
+
 
 class NOT_PROVIDED:
     def __str__(self):
         return 'No default provided.'
 
-INVALID_PATH_CHARS = ('/', '\000')
 
 class Field(object):
     """The base implementation of a field used by a GitModel class."""
@@ -23,8 +26,8 @@ class Field(object):
     serializable = True
 
     def __init__(self, name=None, id=False, default=NOT_PROVIDED,
-            required=True, readonly=False, unique=False, serialize=True, 
-            autocreated=False, error_messages=None):
+                 required=True, readonly=False, unique=False, serialize=True,
+                 autocreated=False, error_messages=None):
 
         self.model = None
         self.name = name
@@ -44,7 +47,6 @@ class Field(object):
             messages.update(getattr(c, 'default_error_messages', {}))
         messages.update(error_messages or {})
         self.error_messages = messages
-
 
         # store the creation index in the "creation_counter" of the field
         self.creation_counter = Field.creation_counter
@@ -67,8 +69,8 @@ class Field(object):
             if callable(self._default):
                 return self._default()
             return self._default
-        return 
-    
+        return
+
     def _get_val_from_obj(self, obj):
         if obj is not None:
             return getattr(obj, self.name)
@@ -80,7 +82,7 @@ class Field(object):
 
     def empty(self, value):
         """Returns True if value is considered an empty value for this field"""
-        return not value;
+        return not value
 
     def __cmp__(self, other):
         # This is needed because bisect does not take a comparison function.
@@ -138,6 +140,7 @@ class Field(object):
         """
         pass
 
+
 class CharField(Field):
     """
     A text field of arbitrary length.
@@ -151,28 +154,40 @@ class CharField(Field):
 
         return unicode(value)
 
+
 class SlugField(CharField):
     default_error_messages = {
-        'invalid_slug': 'must contain only letters, numbers, underscores and dashes'
+        'invalid_slug': ('must contain only letters, numbers, underscores and '
+                         'dashes')
     }
+
     def validate(self, value, model_instance):
         super(SlugField, self).validate(value, model_instance)
         slug_re = re.compile(r'^[-\w]+$')
         if not slug_re.match(value):
             raise ValidationError('invalid_slug', self)
 
+
 class EmailField(CharField):
     default_error_messages = {
         'invalid_email': 'must be a valid e-mail address'
     }
+
     def validate(self, value, model_instance):
         super(EmailField, self).validate(value, model_instance)
+
         email_re = re.compile(
-            r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
-            r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]|\\[\001-011\013\014\016-\177])*"' # quoted-string
-            r')@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?$', re.IGNORECASE)  # domain
+            r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+"
+            r"(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
+            r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
+            r'|\\[\001-011\013\014\016-\177])*"'  # quoted-string
+            r')@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}'
+            r'[A-Z0-9])?\.)+[A-Z]{2,6}\.?$',  # domain
+            re.IGNORECASE)
+
         if not email_re.match(value):
             raise ValidationError('invalid_email', self)
+
 
 class BlobField(Field):
     """
@@ -186,7 +201,7 @@ class BlobField(Field):
         if hasattr(value, 'read'):
             return value
         return StringIO(value)
-        
+
     def post_save(self, value, instance, commit=False):
         workspace = instance._meta.workspace
         # the value should already be coerced to a file-like object by now
@@ -238,6 +253,7 @@ class IntegerField(Field):
     def empty(self, value):
         return value is None
 
+
 class UUIDField(CharField):
     """
     A CharField which uses a globally-unique identifier as its default value
@@ -245,6 +261,7 @@ class UUIDField(CharField):
     @property
     def default(self):
         return uuid.uuid4().hex
+
 
 class FloatField(Field):
     default_error_messages = {
@@ -294,10 +311,9 @@ class BooleanField(Field):
         if value is None and self.nullable:
             return None
         return bool(value)
-    
+
     def empty(self, value):
         return value is None
-
 
 
 class DateField(Field):
@@ -313,7 +329,7 @@ class DateField(Field):
             return value.date()
         if isinstance(value, date):
             return value
-        
+
         if isinstance(value, basestring):
             try:
                 return isodate.parse_iso_date(value)
@@ -328,6 +344,7 @@ class DateField(Field):
             return ''
         else:
             return val.isoformat().split('T')[0]
+
 
 class DateTimeField(Field):
     default_error_messages = {
@@ -362,6 +379,7 @@ class DateTimeField(Field):
         else:
             return val.isoformat().replace('T', ' ')
 
+
 class TimeField(Field):
     default_error_messages = {
         'invalid_format': 'must be in the format of HH:MM[:SS]',
@@ -389,6 +407,7 @@ class TimeField(Field):
         else:
             return val.isoformat()
 
+
 class RelatedFieldDescriptor(object):
     def __init__(self, field):
         self.field = field
@@ -402,6 +421,7 @@ class RelatedFieldDescriptor(object):
 
     def __set__(self, instance, value):
         instance.__dict__[self.field.name] = value
+
 
 class RelatedField(Field):
     def __init__(self, model, **kwargs):
@@ -431,5 +451,4 @@ class RelatedField(Field):
 
     def contribute_to_class(self, cls, name):
         super(RelatedField, self).contribute_to_class(cls, name)
-        setattr(cls, name, RelatedFieldDescriptor(self))   
-
+        setattr(cls, name, RelatedFieldDescriptor(self))

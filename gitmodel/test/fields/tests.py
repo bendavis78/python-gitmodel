@@ -1,6 +1,7 @@
 import os
 from gitmodel.test import GitModelTestCase
 
+
 class TestInstancesMixin(object):
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
@@ -28,13 +29,14 @@ class TestInstancesMixin(object):
             body='Lorem ipsum dolor sit amet',
         )
 
+
 class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
     def test_validate_not_empty(self):
         # empty string on required field should trigger validationerror
         self.person.last_name = ''
         with self.assertRaises(self.exceptions.ValidationError):
             self.person.save()
-        
+
         # None on required field should trigger validationerror
         self.person.last_name = None
         with self.assertRaises(self.exceptions.ValidationError):
@@ -44,7 +46,7 @@ class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
         self.person.email = 'foo_at_example.com'
         with self.assertRaises(self.exceptions.ValidationError):
             self.person.save()
-    
+
     def test_validate_slug(self):
         self.person.slug = 'Foo Bar'
         with self.assertRaises(self.exceptions.ValidationError):
@@ -77,7 +79,7 @@ class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
     def test_validate_date(self):
         # valid iso-8601 date
         self.person.birth_date = '1978-12-07'
-        self.person.save() 
+        self.person.save()
         # not a valid iso-8601 date
         self.person.birth_date = '12/7/1978'
         with self.assertRaises(self.exceptions.ValidationError):
@@ -97,6 +99,7 @@ class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
         with self.assertRaises(self.exceptions.ValidationError):
             self.person.save()
 
+
 class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
 
     def assertTypesMatch(self, field, test_values, type):
@@ -110,55 +113,59 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
     def test_char(self):
         from datetime import datetime
         test_values = {
-            'John': 'John', 
+            'John': 'John',
             .007: '0.007',
-            datetime(2012,12,12): '2012-12-12 00:00:00'
+            datetime(2012, 12, 12): '2012-12-12 00:00:00'
         }
         self.assertTypesMatch('first_name', test_values, basestring)
 
     def test_integer(self):
-        test_values = {33:33, '33':33}
+        test_values = {33: 33, '33': 33}
         self.assertTypesMatch('age', test_values, int)
-    
+
     def test_float(self):
-        test_values = {.825:.825, '0.825':.825}
+        test_values = {.825: .825, '0.825': .825}
         self.assertTypesMatch('tax_rate', test_values, float)
 
     def test_decimal(self):
         from decimal import Decimal
         test_values = {
-            '1.23':Decimal('1.23'), 
-            '12.300':Decimal('12.3'),
-            1:Decimal('1.0')
+            '1.23': Decimal('1.23'),
+            '12.300': Decimal('12.3'),
+            1: Decimal('1.0')
         }
         self.assertTypesMatch('account_balance', test_values, Decimal)
 
     def test_boolean(self):
         test_values = {
-            True:True,
-            False:False,
-            1:True, 
-            0:False, 
-            None:False
+            True: True,
+            False: False,
+            1: True,
+            0: False,
+            None: False
         }
         self.assertTypesMatch('active', test_values, bool)
 
     def test_date(self):
         from datetime import date
         test_values = {
-            '1978-12-7': date(1978,12,7),
-            '1850-05-05': date(1850,5,5),
+            '1978-12-7': date(1978, 12, 7),
+            '1850-05-05': date(1850, 5, 5),
         }
         self.assertTypesMatch('birth_date', test_values, date)
 
     def test_datetime(self):
         from datetime import datetime
         from dateutil import tz
+        utc = tz.tzutc()
+        utc_offset = tz.tzoffset(None, -1 * 4 * 60 * 60)
         test_values = {
-            '2012-05-30 14:32': datetime(2012,5,30,14,32),
-            '1820-8-13 9:23:48Z': datetime(1820,8,13,9,23,48,0,tz.tzutc()),
-            '2001-9-11 8:46:00-0400': datetime(2001,9,11,8,46,0,0,tz.tzoffset(None, -1*4*60*60)),
-            '2012-05-05 14:32:02.012345': datetime(2012,5,5,14,32,2,12345),
+            '2012-05-30 14:32': datetime(2012, 5, 30, 14, 32),
+            '1820-8-13 9:23:48Z': datetime(1820, 8, 13, 9, 23, 48, 0, utc),
+            '2001-9-11 8:46:00-0400': datetime(2001, 9, 11, 8, 46, 0, 0,
+                                               utc_offset),
+            '2012-05-05 14:32:02.012345': datetime(2012, 5, 5, 14, 32, 2,
+                                                   12345),
         }
         self.assertTypesMatch('date_joined', test_values, datetime)
         # test a normal date
@@ -166,15 +173,17 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
         self.person.save()
         person = self.models.Person.get(self.person.id)
         self.assertEqual(type(person.date_joined), datetime)
-        self.assertEqual(person.date_joined, datetime(2012,1,1,0,0))
+        self.assertEqual(person.date_joined, datetime(2012, 1, 1, 0, 0))
 
     def test_time(self):
         from datetime import time
         from dateutil import tz
+        utc = tz.tzutc()
+        utc_offset = tz.tzoffset(None, -1 * 4 * 60 * 60)
         test_values = {
-            '14:32': time(14,32),
-            '9:23:48Z': time(9,23,48,0,tz.tzutc()),
-            '8:46:00-0400': time(8,46,0,0,tz.tzoffset(None, -1*4*60*60))
+            '14:32': time(14, 32),
+            '9:23:48Z': time(9, 23, 48, 0, utc),
+            '8:46:00-0400': time(8, 46, 0, 0, utc_offset)
         }
         self.assertTypesMatch('wake_up_call', test_values, time)
 
@@ -188,9 +197,11 @@ class RelatedFieldTest(TestInstancesMixin, GitModelTestCase):
         post = self.models.Post.get(post_id)
         self.assertTrue(post.author.get_id() == self.author.get_id())
 
+
 class BlobFieldTest(TestInstancesMixin, GitModelTestCase):
     def test_blob_field(self):
-        fd = open(os.path.join(os.path.dirname(__file__), 'git-logo-2color.png'))
+        fd = open(os.path.join(os.path.dirname(__file__),
+                               'git-logo-2color.png'))
         self.author.save()
         self.post.author = self.author
         self.post.image = fd
@@ -201,7 +212,9 @@ class BlobFieldTest(TestInstancesMixin, GitModelTestCase):
         saved_content = post.image.read()
         fd.seek(0)
         control = fd.read()
-        self.assertEqual(saved_content, control, "Saved blob does not match file")
+        self.assertEqual(saved_content, control,
+                         "Saved blob does not match file")
+
 
 class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
     def test_inherited_local_fields(self):
@@ -233,4 +246,3 @@ class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
         # get user
         user_retreived = self.models.User.get(user.id)
         self.assertEqual(user_retreived.last_read.get_id(), self.post.get_id())
-

@@ -6,6 +6,7 @@ import re
 import shutil
 import pygit2
 
+
 class GitModelTestCase(unittest.TestCase):
     """ Sets up a temporary git repository for each test """
 
@@ -28,9 +29,10 @@ class GitModelTestCase(unittest.TestCase):
         # clean up test repo
         shutil.rmtree(self.repo_path)
 
+
 def get_module_suite(mod):
     """
-    Test modules may provide a suite() function, otherwise all TestCase 
+    Test modules may provide a suite() function, otherwise all TestCase
     subclasses are gethered automatically into a TestSuite
     """
     # modules may provide a suite() function,
@@ -62,8 +64,9 @@ def get_all_suites():
     test_dir = os.path.dirname(__file__)
     for f in os.listdir(test_dir):
         mod = None
-        if os.path.exists(os.path.join(test_dir, f, 'tests.py')): 
-            p = __import__('gitmodel.test.{}'.format(f), globals(), locals(), ['tests'], -1)
+        if os.path.exists(os.path.join(test_dir, f, 'tests.py')):
+            p = __import__('gitmodel.test.{}'.format(f), globals(), locals(),
+                           ['tests'], -1)
             mod = p.tests
         elif re.match(r'^test_\w+.py$', f):
             modname = f.replace('.py', '')
@@ -72,6 +75,7 @@ def get_all_suites():
         if mod:
             suite = get_module_suite(mod)
             yield suite
+
 
 def default_suite():
     """ Sets up the default test suite """
@@ -89,15 +93,17 @@ class TestLoader(unittest.TestLoader):
 
         testcase = None
         if '.' in name:
-            name, testcase = name.split('.',1)
-        
+            name, testcase = name.split('.', 1)
+
         for suite in get_all_suites():
             if suite.name == name:
                 if testcase is None:
                     return suite
-                return super(TestLoader, self).loadTestsFromName(testcase, suite.module)
+                return super(TestLoader, self).loadTestsFromName(testcase,
+                                                                 suite.module)
 
         raise LookupError('could not find test case for "{}"'.format(name))
+
 
 def main():
     """ Runs the default test suite as a command line application. """

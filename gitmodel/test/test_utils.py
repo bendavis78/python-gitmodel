@@ -1,6 +1,7 @@
 import pygit2
 from gitmodel.test import GitModelTestCase
 
+
 class GitModelUtilsTest(GitModelTestCase):
     def setUp(self):
         super(GitModelUtilsTest, self).setUp()
@@ -28,9 +29,9 @@ class GitModelUtilsTest(GitModelTestCase):
         root = root_tb.write()
 
         desc = git.describe_tree(repo, root)
-        test_desc =  'foo/\n  bar/\n    baz/\n      test2.txt\n    test.txt'
+        test_desc = 'foo/\n  bar/\n    baz/\n      test2.txt\n    test.txt'
         self.assertMultiLineEqual(desc, test_desc)
-    
+
     def test_make_signature(self):
         from gitmodel.utils import git
         from datetime import datetime
@@ -39,19 +40,20 @@ class GitModelUtilsTest(GitModelTestCase):
 
         # Get local offset
         timestamp = time()
-        dt = datetime.fromtimestamp(timestamp) 
-        aware = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, 
-                         dt.second, dt.microsecond, tzinfo=tzlocal())                                                                                                    
+        dt = datetime.fromtimestamp(timestamp)
+        aware = datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute,
+                         dt.second, dt.microsecond, tzinfo=tzlocal())
         seconds = aware.utcoffset().days * 86400
         seconds += aware.utcoffset().seconds
         offset = seconds / 60
 
-        test_sig = git.make_signature('Tester Test', 'test@example.com', timestamp=timestamp)
+        test_sig = git.make_signature('Tester Test', 'test@example.com',
+                                      timestamp=timestamp)
         self.assertEqual(test_sig.name, 'Tester Test')
         self.assertEqual(test_sig.email, 'test@example.com')
         self.assertEqual(test_sig.offset, offset)
         self.assertAlmostEqual(test_sig.time, timestamp, -1)
-        
+
         # since we defined passed timestamp earlier, test that timestamp is
         # automatically created
         test_sig = git.make_signature('Tester Test', 'test@example.com')
@@ -60,7 +62,7 @@ class GitModelUtilsTest(GitModelTestCase):
     def test_build_path_empty(self):
         # Test building a path from an empty tree
         from gitmodel.utils import git
-        path = '/foo/bar/baz/' # path sep should be stripped
+        path = '/foo/bar/baz/'  # path sep should be stripped
         # create dummy entry
         blob_oid = self.repo.create_blob("TEST CONTENT")
         entries = [('qux.txt', blob_oid, pygit2.GIT_FILEMODE_BLOB)]
@@ -68,11 +70,11 @@ class GitModelUtilsTest(GitModelTestCase):
         desc = git.describe_tree(self.repo, oid)
         test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
         self.assertMultiLineEqual(desc, test_desc)
-    
+
     def test_build_path_update(self):
         # Test building a path from an existing tree, updating the path
         from gitmodel.utils import git
-        path = '/foo/bar/baz/' # path sep should be stripped
+        path = '/foo/bar/baz/'  # path sep should be stripped
         # build initial tree
         blob_oid = self.repo.create_blob("TEST CONTENT")
         entries = [('qux.txt', blob_oid, pygit2.GIT_FILEMODE_BLOB)]

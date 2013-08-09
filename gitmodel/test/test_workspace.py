@@ -1,6 +1,7 @@
 from gitmodel.test import GitModelTestCase
 from gitmodel import exceptions
 
+
 class GitModelWorkspaceTest(GitModelTestCase):
     def setUp(self):
         super(GitModelWorkspaceTest, self).setUp()
@@ -54,7 +55,8 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.workspace.commit('initial commit')
         self.assertIsNotNone(self.workspace.branch)
         self.assertEqual(self.workspace.branch.ref.name, 'refs/heads/master')
-        self.assertEqual(self.workspace.branch.commit.message, 'initial commit')
+        self.assertEqual(self.workspace.branch.commit.message,
+                         'initial commit')
 
     def test_set_branch(self):
         # create intial master branch
@@ -77,7 +79,8 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.assertEqual(test_content, 'Test')
 
     def test_set_nonexistant_branch(self):
-        with self.assertRaisesRegexp(exceptions.RepositoryError, r'Reference not found'):
+        with self.assertRaisesRegexp(exceptions.RepositoryError,
+                                     r'Reference not found'):
             self.workspace.set_branch('foobar')
 
     def test_update_index_with_pending_changes(self):
@@ -87,7 +90,7 @@ class GitModelWorkspaceTest(GitModelTestCase):
             self.workspace.add_blob('test.txt', 'Test 2')
             self.workspace.create_branch('testbranch')
             self.workspace.set_branch('testbranch')
-    
+
     def test_add_blob(self):
         self.workspace.add_blob('test.txt', 'Test')
         entry = self.workspace.index['test.txt']
@@ -100,7 +103,8 @@ class GitModelWorkspaceTest(GitModelTestCase):
 
     def test_commit_on_success_with_error(self):
         # make an exception we can catch
-        class TestException(Exception): pass
+        class TestException(Exception):
+            pass
         try:
             with self.workspace.commit_on_success('Test commit'):
                 self.workspace.add_blob('test.txt', 'Test')
@@ -116,7 +120,7 @@ class GitModelWorkspaceTest(GitModelTestCase):
             with self.workspace.commit_on_success('Test commit'):
                 self.workspace.add_blob('test.txt', 'Test')
         self.assertEqual(self.workspace.branch, None)
-        
+
     def test_has_changes(self):
         self.workspace.add_blob('foo.txt', 'Foobar')
         self.assertTrue(self.workspace.has_changes())
