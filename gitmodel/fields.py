@@ -205,7 +205,7 @@ class BlobField(Field):
 
     def _get_path(self, instance):
         from gitmodel import models
-        if isinstance(instance, models.GitModel):
+        if isinstance(instance, models.GitModelBase):
             path = instance.get_path()
         else:
             id_field = self.model._meta.id_field
@@ -413,7 +413,7 @@ class RelatedField(Field):
         if value is None:
             return value
 
-        if isinstance(value, models.GitModel):
+        if isinstance(value, models.GitModelBase):
             return value
 
         return self.to_model.get(value)

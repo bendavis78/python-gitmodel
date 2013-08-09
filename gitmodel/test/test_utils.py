@@ -1,3 +1,4 @@
+import pygit2
 from gitmodel.test import GitModelTestCase
 
 class GitModelUtilsTest(GitModelTestCase):
@@ -12,18 +13,18 @@ class GitModelUtilsTest(GitModelTestCase):
         # build "/foo/bar/test.txt" and "/foo/bar/baz/test2.txt"
         test2_txt = repo.create_blob("TEST 2")
         baz_tb = repo.TreeBuilder()
-        baz_tb.insert('test2.txt', test2_txt, git.GIT_MODE_NORMAL)
+        baz_tb.insert('test2.txt', test2_txt, pygit2.GIT_FILEMODE_BLOB)
         test_txt = repo.create_blob("TEST")
         baz = baz_tb.write()
         bar_tb = repo.TreeBuilder()
-        bar_tb.insert('test.txt', test_txt, git.GIT_MODE_NORMAL)
-        bar_tb.insert('baz', baz, git.GIT_MODE_TREE)
+        bar_tb.insert('test.txt', test_txt, pygit2.GIT_FILEMODE_BLOB)
+        bar_tb.insert('baz', baz, pygit2.GIT_FILEMODE_TREE)
         bar = bar_tb.write()
         foo_tb = repo.TreeBuilder()
-        foo_tb.insert('bar', bar, git.GIT_MODE_TREE)
+        foo_tb.insert('bar', bar, pygit2.GIT_FILEMODE_TREE)
         foo = foo_tb.write()
         root_tb = repo.TreeBuilder()
-        root_tb.insert('foo', foo, git.GIT_MODE_TREE)
+        root_tb.insert('foo', foo, pygit2.GIT_FILEMODE_TREE)
         root = root_tb.write()
 
         desc = git.describe_tree(repo, root)
@@ -62,7 +63,7 @@ class GitModelUtilsTest(GitModelTestCase):
         path = '/foo/bar/baz/' # path sep should be stripped
         # create dummy entry
         blob_oid = self.repo.create_blob("TEST CONTENT")
-        entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
+        entries = [('qux.txt', blob_oid, pygit2.GIT_FILEMODE_BLOB)]
         oid = git.build_path(self.repo, path, entries)
         desc = git.describe_tree(self.repo, oid)
         test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
@@ -74,15 +75,16 @@ class GitModelUtilsTest(GitModelTestCase):
         path = '/foo/bar/baz/' # path sep should be stripped
         # build initial tree
         blob_oid = self.repo.create_blob("TEST CONTENT")
-        entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
+        entries = [('qux.txt', blob_oid, pygit2.GIT_FILEMODE_BLOB)]
         tree1 = git.build_path(self.repo, path, entries)
 
         # build the same path, but this time with a new blob
         blob_oid = self.repo.create_blob("UPDATED CONTENT")
-        entries = [('qux.txt', blob_oid, git.GIT_MODE_NORMAL)]
+        entries = [('qux.txt', blob_oid, pygit2.GIT_FILEMODE_BLOB)]
         tree2 = git.build_path(self.repo, path, entries, tree1)
 
-        new_content = self.repo[tree2]['foo/bar/baz/qux.txt'].to_object().data
+        entry = self.repo[tree2]['foo/bar/baz/qux.txt']
+        new_content = self.repo[entry.oid].data
         desc = git.describe_tree(self.repo, tree2)
         test_desc = 'foo/\n  bar/\n    baz/\n      qux.txt'
         self.assertEqual(new_content, 'UPDATED CONTENT')

@@ -4,14 +4,16 @@ from gitmodel.test import GitModelTestCase
 class TestInstancesMixin(object):
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
-        from gitmodel.test.fields.models import setup
-        self.models = setup(self.workspace)
+
+        from gitmodel.test.fields import models
+        self.workspace.import_models(models)
+        self.models = self.workspace.models
 
         self.person = self.models.Person(
-            slug = 'john-doe',
-            first_name = 'John',
-            last_name = 'Doe',
-            email = 'jdoe@example.com',
+            slug='john-doe',
+            first_name='John',
+            last_name='Doe',
+            email='jdoe@example.com',
         )
 
         self.author = self.models.Author(
@@ -208,7 +210,7 @@ class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
             first_name='John',
             last_name='Doe',
             email='jdoe@example.com',
-            password='secret',
+            password='secret'
         )
         user.save()
         # get user

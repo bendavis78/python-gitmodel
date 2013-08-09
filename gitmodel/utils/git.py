@@ -4,12 +4,6 @@ from datetime import datetime
 from dateutil.tz import tzlocal
 import pygit2
 
-GIT_MODE_NORMAL     = 0o100633
-GIT_MODE_EXECUTABLE = 0o100755
-GIT_MODE_SYMLINK    = 0o120000
-GIT_MODE_TREE       = 0o040000
-GIT_MODE_COMMIT     = 0o160000
-
 def make_signature(name, email, timestamp=None, offset=None, default_offset=None):
     """
     Creates a pygit2.Signature while making time and offset optional. By 
@@ -40,7 +34,7 @@ def describe_tree(repo, tree, indent=2, lvl=0):
     tree = repo[tree]
     for e in tree:
         i = ' ' * indent * lvl
-        is_tree = e.to_object().type == pygit2.GIT_OBJ_TREE
+        is_tree = repo[e.oid].type == pygit2.GIT_OBJ_TREE
         slash = is_tree and '/' or ''
         output.append('{}{}{}'.format(i, e.name, slash))
         if is_tree:
@@ -77,7 +71,7 @@ def build_path(repo, path, entries=None, root=None):
         root_id = repo.TreeBuilder().write()
         root = repo[root_id]
 
-    if isinstance(root, basestring):
+    if isinstance(root, (basestring, pygit2.Oid)):
         root = repo[root]
 
     if parent is None:
@@ -103,7 +97,7 @@ def build_path(repo, path, entries=None, root=None):
         # we're at the root tree
         return oid
 
-    entry = (name, oid, GIT_MODE_TREE)
+    entry = (name, oid, pygit2.GIT_FILEMODE_TREE)
 
     if parent == '':
         # parent is the root tree

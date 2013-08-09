@@ -1,5 +1,5 @@
 DEFAULTS = {
-    'DEFAULT_SERIALIZER': 'gitmodel.serializer',
+    'DEFAULT_SERIALIZER': 'gitmodel.serializers.json',
     'LOCK_WAIT_TIMEOUT': 30, # in seconds
     'LOCK_WAIT_INTERVAL': 1000, # in milliseconds
     'DEFAULT_GIT_USER': ('gitmodel', 'gitmodel@local'),
@@ -22,3 +22,5 @@ class Config(dict):
 
     def __setattr__(self, name, value):
         self[name] = value
+
+defaults = Config(DEFAULTS)

@@ -12,18 +12,25 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.assertIsInstance(self.workspace.config, Config)
         self.assertIsInstance(self.workspace.repo, pygit2.Repository)
 
-    def test_default_branch(self):
-        # make sure head matches default branch
-        default_branch = self.workspace.config.DEFAULT_BRANCH
-        self.assertEqual(self.workspace.head, default_branch)
-        self.assertIsNotNone(self.workspace.index)
-    
     def test_base_gitmodel(self):
-        from gitmodel.models import GitModel
-        self.assertTrue(issubclass(self.workspace.GitModel, GitModel))
-        test_model = self.workspace.GitModel()
-        self.assertIsInstance(test_model, self.workspace.GitModel)
-        self.assertIsInstance(test_model, GitModel)
+        from gitmodel.models import GitModel, DeclarativeMetaclass
+        self.assertIsInstance(GitModel, DeclarativeMetaclass)
+        self.assertIsInstance(self.workspace.models.GitModel,
+                              DeclarativeMetaclass)
+
+    def test_register_model(self):
+        from gitmodel.models import GitModelBase, DeclarativeMetaclass
+        from gitmodel import fields
+
+        class TestModel(GitModelBase):
+            foo = fields.CharField()
+            bar = fields.CharField()
+
+        self.workspace.register_model(TestModel)
+        self.assertIsNotNone(self.workspace.models.get('TestModel'))
+        test_model = self.workspace.models.TestModel()
+        self.assertIsInstance(test_model, self.workspace.models.TestModel)
+        self.assertIsInstance(test_model.__class__, DeclarativeMetaclass)
         self.assertEqual(test_model._meta.workspace, self.workspace)
 
     def test_init_existing_branch(self):
@@ -38,7 +45,8 @@ class GitModelWorkspaceTest(GitModelTestCase):
 
     def test_getitem(self):
         self.workspace.add_blob('test.txt', 'Test')
-        self.assertEqual(self.workspace.index['test.txt'].to_object().data, 'Test')
+        entry = self.workspace.index['test.txt']
+        self.assertEqual(self.repo[entry.oid].data, 'Test')
 
     def test_branch_property(self):
         self.assertIsNone(self.workspace.branch)
@@ -59,11 +67,13 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.workspace.add_blob('test.txt', 'Test 2')
         self.workspace.commit('test branch commit')
 
-        test_content = self.workspace.index['test.txt'].to_object().data
+        entry = self.workspace.index['test.txt']
+        test_content = self.repo[entry.oid].data
         self.assertEqual(test_content, 'Test 2')
 
         self.workspace.set_branch('master')
-        test_content = self.workspace.index['test.txt'].to_object().data
+        entry = self.workspace.index['test.txt']
+        test_content = self.repo[entry.oid].data
         self.assertEqual(test_content, 'Test')
 
     def test_set_nonexistant_branch(self):
@@ -80,7 +90,8 @@ class GitModelWorkspaceTest(GitModelTestCase):
     
     def test_add_blob(self):
         self.workspace.add_blob('test.txt', 'Test')
-        self.assertEqual(self.workspace.index['test.txt'].to_object().data, 'Test')
+        entry = self.workspace.index['test.txt']
+        self.assertEqual(self.repo[entry.oid].data, 'Test')
 
     def test_commit_on_success(self):
         with self.workspace.commit_on_success('Test commit'):

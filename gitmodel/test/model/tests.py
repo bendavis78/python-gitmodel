@@ -12,8 +12,9 @@ class TestInstancesMixin(object):
 
         self.exceptions = exceptions
         self.fields = fields
-        self.models = models.setup(self.workspace)
-        
+        self.workspace.import_models(models)
+        self.models = self.workspace.models
+
         self.author = self.models.Author(
             email='jdoe@example.com',
             first_name='John',
@@ -124,7 +125,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.maxDiff = None
         self.author.save()
         self.assertTrue(self.workspace.has_changes())
-        blob_hash = self.workspace.index[self.author.get_path()].to_object().hex[:7]
+        blob_hash = self.workspace.index[self.author.get_path()].hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__), 'diff_nobranch.diff')).read()
         diff = diff.format(self.author.get_path(), blob_hash, self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
@@ -133,10 +134,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # Tests a diff when a save is made with previous commits
         self.maxDiff = None
         self.author.save(commit=True, message="Test first commit")
-        blob_hash_1 = self.workspace.index[self.author.get_path()].to_object().hex[:7]
+        blob_hash_1 = self.workspace.index[self.author.get_path()].hex[:7]
         self.author.first_name = 'Jane'
         self.author.save()
-        blob_hash_2 = self.workspace.index[self.author.get_path()].to_object().hex[:7]
+        blob_hash_2 = self.workspace.index[self.author.get_path()].hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__), 'diff_branch.diff')).read()
         diff = diff.format(self.author.get_path(), blob_hash_1, blob_hash_2, self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
@@ -199,6 +200,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_inherited_field_clash(self):
         with self.assertRaises(self.exceptions.FieldError):
+            # first_name should clash with the parent models' first_name field
             class User(self.models.Person):
                 first_name = self.fields.CharField()
                 password = self.fields.CharField()

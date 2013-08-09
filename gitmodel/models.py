@@ -1,4 +1,5 @@
 import os
+import functools
 from bisect import bisect
 from contextlib import contextmanager
 from importlib import import_module
@@ -6,24 +7,34 @@ from gitmodel import exceptions
 from gitmodel import fields
 
 # attributes that can be overridden in a model's options ("Meta" class)
-META_OPTS = ('id_field', 'make_path')
+META_OPTS = ('id_field', 'make_path', 'workspace')
+
 
 class GitModelOptions(object):
     """
     An options class for ``GitModel``.
     """
+    workspace = None
+
     def __init__(self, meta, workspace):
         self.meta = meta
-        self.workspace = workspace
         self.local_fields = []
         self.local_many_to_many = []
         self.model_name = None
         self.parents = []
         self.id_field = None
-        
-        # attach configured serializer module
-        if workspace:
-            self.serializer = import_module(workspace.config.DEFAULT_SERIALIZER)
+        self.workspace = workspace
+        self._serializer = None
+
+    @property
+    def serializer(self):
+        if self._serializer is None:
+            from gitmodel.conf import defaults
+            default_serializer = defaults.DEFAULT_SERIALIZER
+            if self.workspace is not None:
+                default_serializer = self.workspace.config.DEFAULT_SERIALIZER
+            self._serializer = import_module(default_serializer)
+        return self._serializer
 
     def contribute_to_class(self, cls, name):
         cls._meta = self
@@ -118,58 +129,85 @@ class GitModelOptions(object):
 class DeclarativeMetaclass(type):
     def __new__(cls, name, bases, attrs):
         parents = [b for b in bases if isinstance(b, DeclarativeMetaclass)]
-        # Similate MRO
         parents.reverse()
 
         # Create the class, while leaving out the declared attributes
         module = attrs.pop('__module__')
-        new_class = super(DeclarativeMetaclass, cls).__new__(cls, name, bases, 
-                {'__module__': module})
-                      
+        options_cls = attrs.pop('__optclass__', None)
+        super_new = super(DeclarativeMetaclass, cls).__new__
+        new_class = super_new(cls, name, bases, {'__module__': module})
+
+        # ensure initialization is only performed on GitModel subclasses.
+        if name == 'GitModel' and not parents:
+            return new_class
+
+        # workspace that will be passed to GitModelOptions
         workspace = attrs.pop('__workspace__', None)
+
+        # inherit parent workspace if not provided
+        if not workspace:
+            for parent in parents:
+                if isinstance(parent, DeclarativeMetaclass):
+                    workspace = parent._meta.workspace
+                    continue
+
+        if not workspace:
+            msg = "GitModel subclasses must have a __workspace__ attribute"
+            raise exceptions.GitModelError(msg)
 
         # grab the declared Meta
         meta = attrs.pop('Meta', None)
         if not meta:
-            # if not declared, make sure we use parent's meta
+            # if not declared, make sure we use base's meta
             meta = getattr(new_class, 'Meta', None)
 
-        if workspace is None and len(parents) > 0:
-            workspace = parents[0]._meta.workspace
-
         # Add _meta to the new class. The _meta property is an instance of 
-        # GitModelOptions, based off of the optionall declared "Meta" class
-        new_class.add_to_class('_meta', GitModelOptions(meta, workspace))
+        # GitModelOptions, based off of the optional declared "Meta" class
+        if options_cls is None:
+            if len(parents) > 0:
+                options_cls = parents[0]._meta.__class__
+            else:
+                options_cls = GitModelOptions
+
+        opts = options_cls(meta, workspace)
+
+        new_class.add_to_class('_meta', opts)
 
         # Add all attributes to the class
-
         for obj_name, obj in attrs.items():
             new_class.add_to_class(obj_name, obj)
 
-        local_field_names = [f.name for f in new_class._meta.local_fields]
-
         # Handle parents
-        for base in parents:
-            if not hasattr(base, '_meta'):
+        for parent in parents:
+            if not hasattr(parent, '_meta'):
                 # Ignore parents that have no _meta
                 continue
-
-            parent_fields = base._meta.local_fields
-
-            # Check for duplicate field definitions in parents
-            for field in parent_fields:
-                if field.autocreated:
-                    # skip adding autocreated fields to child class
-                    continue
-                if field.name in local_field_names:
-                    msg = 'Duplicate field name "%s" in %r already exists in '\
-                          'base model %r'
-                    raise exceptions.FieldError(msg % (field.name, name, base.__name__))
-
-            new_class._meta.parents.append(base)
+            new_class._check_parent_fields(parent)
+            new_class._meta.parents.append(parent)
 
         new_class._prepare()
         return new_class
+
+    def _check_parent_fields(cls, parent, child=None):
+        """
+        Checks a parent class's inheritance chain for field conflicts
+        """
+        if child is None:
+            child = cls
+
+        local_field_names = [f.name for f in child._meta.local_fields]
+        # Check for duplicate field definitions in parent
+        for field in parent._meta.local_fields:
+            if not field.autocreated and field.name in local_field_names:
+                msg = ('Duplicate field name "{0}" in {1!r} already exists in '
+                      'parent model {2!r}')
+                msg = msg.format(field.name, child.__name__, parent.__name__)
+                raise exceptions.FieldError(msg)
+
+        # check base's inheritance chain
+        for p in parent._meta.parents:
+            parent._check_parent_fields(p, child)
+
 
     def _prepare(cls):
         """
@@ -193,11 +231,31 @@ class DeclarativeMetaclass(type):
         else:
             setattr(cls, name, value)
 
-class GitModel(object):
-    __metaclass__ = DeclarativeMetaclass
+
+def gmclassmethod(func):
+    @functools.wraps(func)
+    def inner(cls, *args, **kwargs):
+        if not isinstance(cls, DeclarativeMetaclass):
+            msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} has "
+                   "not been initialized with the appropriate metaclass. You "
+                   "must either extend GitModel or register the model with a "
+                   "workspace.")
+            raise exceptions.GitModelError(msg.format(cls, func))
+        return func(cls, *args, **kwargs)
+    return classmethod(inner)
+
+
+class GitModelBase(object):
     __workspace__ = None
 
     def __init__(self, **kwargs):
+        if not isinstance(self.__class__, DeclarativeMetaclass):
+            msg = ("{0!r} cannot be instantiated because it has not been "
+                   "initialized with the appropriate metaclass. You must "
+                   "either extend GitModel or register this class with a "
+                   "workspace.")
+            raise GitModelError(msg.format(self.__class__))
+
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
         for field in self._meta.fields:
@@ -224,7 +282,7 @@ class GitModel(object):
             if kwargs:
                 raise TypeError("'{}' is an invalid keyword argument for this function".format(kwargs.keys()[0]))
 
-        super(GitModel, self).__init__()
+        super(GitModelBase, self).__init__()
 
     def save(self, commit=False, **commit_info):
         # make sure model has clean data
@@ -294,8 +352,8 @@ class GitModel(object):
         """
         with self._meta.workspace.lock(self.get_id()):
             yield
-    
-    @classmethod
+
+    @gmclassmethod
     def get(cls, id):
         """
         Gets the object associated with the given id
@@ -310,3 +368,7 @@ class GitModel(object):
         data = workspace.repo[blob].data
         return cls._meta.serializer.deserialize(cls, data)
 
+
+class GitModel(GitModelBase):
+    __metaclass__ = DeclarativeMetaclass
+    

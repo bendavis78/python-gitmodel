@@ -1,12 +1,18 @@
-from time import time
-import os
 from contextlib import contextmanager
+from importlib import import_module
+from time import time
+import copy
+import logging
+import os
+
 import pygit2
+
 from gitmodel import conf
 from gitmodel import exceptions
+from gitmodel import fields
 from gitmodel import models
 from gitmodel.utils import git
-import logging
+
 
 class Workspace(object):
     """
@@ -19,8 +25,17 @@ class Workspace(object):
 
     Passing default_branch will 
     """
-    def __init__(self, repo_path, initial_branch='refs/head/smaster'):
+    def __init__(self, repo_path, initial_branch='refs/heads/master'):
         self.config = conf.Config()
+
+        # set up a model registry 
+        class ModelRegistry(dict):
+            """This class acts like a so-called AttrDict"""
+            def __init__(self):
+                self.__dict__ = self
+
+        self.models = ModelRegistry()
+
         try:
             self.repo = pygit2.Repository(repo_path)
         except KeyError:
@@ -42,15 +57,83 @@ class Workspace(object):
         else:
             self.update_index(self.head)
 
-        # Create a base GitModel that can be easily extended
-        metaclass = models.DeclarativeMetaclass
-        attrs = {
-            '__workspace__': self,
-            '__module__': __name__
-        }
-        self.GitModel = metaclass('GitModel', (models.GitModel,), attrs)
+        # add a base GitModel which can be extended if needed
+        self.register_model(models.GitModelBase, 'GitModel')
 
         self.log = logging.getLogger(__name__)
+
+    def register_model(self, cls, name=None):
+        """
+        Register a GitModelBase class with this workspace. Only classes that do
+        not extend GitModel (ie, have not yet been metaclassed) can be
+        registered. Registering with the workspace will create the appropriate
+        metaclass and will store the resulting GitModel instance in the
+        workspace's ``models`` attribute.
+        """
+        if not name:
+            name = cls.__name__
+
+        if self.models.get(name):
+            return self.models[name]
+
+        if isinstance(cls, models.DeclarativeMetaclass):
+            msg = "{0} is already registered with a workspace"
+            raise ValueError(msg.format(cls.__name__))
+
+        metaclass = models.DeclarativeMetaclass
+        attrs = dict(cls.__dict__, **{
+            '__workspace__': self,
+            '__module__': __name__,
+        })
+        if attrs.get('__dict__'):
+            del attrs['__dict__']
+
+        # parents must also be initialized with the metaclass
+        bases = []
+        for base in cls.__bases__:
+            if not isinstance(base, models.DeclarativeMetaclass) \
+                    and issubclass(base, models.GitModelBase) \
+                    and base != models.GitModelBase:
+                base = self.models.get(name) or self.register_model(base)
+            bases.append(base)
+
+        # any related fields need to be updated so that they point to the
+        # correct model on the workspace
+        for attname, attr in attrs.iteritems():
+            if not isinstance(attr, fields.RelatedField):
+                continue
+
+            # make a shallow copy of the field and "reset" it
+            attrs[attname] = copy.copy(attr)
+            attrs[attname].model = None
+
+            # if the target model already has a workspace don't update it
+            if issubclass(attr.to_model, models.DeclarativeMetaclass):
+                continue
+
+            # register to_model on this workspace
+            to_model = self.models.get(attr.to_model.__name__) or \
+                self.register_model(attr.to_model)
+            attrs[attname].to_model = to_model
+
+        # create the new class and attach it to the workspace
+        new_model = metaclass(name, tuple(bases), attrs)
+        self.models[name] = new_model
+        return new_model
+
+    def import_models(self, path_or_module):
+        """
+        Register all models declared within a given python module
+        """
+        if isinstance(path_or_module, basestring):
+            mod = import_module(path_or_module)
+        else:
+            mod = path_or_module
+
+        for name in dir(mod):
+            item = getattr(mod, name)
+            if isinstance(item, type) and issubclass(item, models.GitModelBase):
+                self.register_model(item, name)
 
     def create_blob(self, content):
         return self.repo.create_blob(content)
@@ -71,7 +154,7 @@ class Workspace(object):
         if start_point_ref.type != pygit2.GIT_OBJ_COMMIT:
             raise ValueError('Given reference must point to a commit')
         branch_ref  = 'refs/heads/{}'.format(name)
-        self.repo.create_reference(branch_ref, start_point_ref.oid)
+        self.repo.create_reference(branch_ref, start_point_ref.target)
 
     def set_branch(self, name):
         """
@@ -112,7 +195,7 @@ class Workspace(object):
         oid = git.build_path(self.repo, path, entries, self.index)
         self.index = self.repo[oid]
 
-    def add_blob(self, path, content, mode=git.GIT_MODE_NORMAL):
+    def add_blob(self, path, content, mode=pygit2.GIT_FILEMODE_BLOB):
         """
         Creates a blob object and adds it to the current index
         """
@@ -150,11 +233,13 @@ class Workspace(object):
         else:
             empty_tree = self.repo.TreeBuilder().write()
             tree = self.repo[empty_tree]
-        return tree.diff(self.index)
+        return tree.diff_to_tree(self.index)
 
     def has_changes(self):
         """Returns True if the current tree differs from the current branch"""
-        return len(self.diff().changes) > 0
+        # As of pygit2 0.19, Diff.patch seems to raise a non-descript GitError
+        # if there are  no changes, so we check the iterable length instead.
+        return len(tuple(self.diff())) > 0
     
     def commit(self, message='', author=None, committer=None):
         """Commits the current tree to the current branch."""
@@ -234,6 +319,6 @@ class Branch(object):
     """
     def __init__(self, repo, ref):
         self.ref = repo.lookup_reference(ref)
-        self.oid = self.ref.oid
-        self.commit = repo[self.oid]
+        self.commit = self.ref.get_object()
+        self.oid = self.commit.oid
         self.tree = self.commit.tree
