@@ -27,7 +27,7 @@ class User(Person):
     date_joined = fields.DateField()
 
 
-def make_path_custom(opts, object_id):
+def get_path_custom(opts, object_id):
     import os
     # kinda silly, but good for testing that the opts object works
     model_name = opts.model_name.lower()
@@ -41,4 +41,4 @@ class PostAlternate(GitModel):
 
     class Meta:
         id_field = 'slug'
-        make_path = make_path_custom
+        get_path_for_id = get_path_custom

@@ -231,7 +231,8 @@ class BlobField(Field):
             path = instance.get_path()
         else:
             id_field = self.model._meta.id_field
-            path = self.model._meta.make_path(instance[id_field])
+            id = instance[id_field]
+            path = self.model._meta.get_path_for_id(id)
         parent_path = os.path.split(path)[0]
         return os.path.join(parent_path, self.name)
 

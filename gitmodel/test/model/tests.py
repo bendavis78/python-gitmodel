@@ -222,7 +222,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_meta_overrides(self):
         self.assertEqual(self.models.PostAlternate._meta.id_field, 'slug')
 
-    def test_make_path_override(self):
+    def test_get_path_override(self):
         post = self.models.PostAlternate(slug='foobar', title='Foobar')
         post.save()
         self.assertEqual(post.get_path(), 'post-alt/foobar/data.json')

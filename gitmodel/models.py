@@ -8,7 +8,7 @@ from gitmodel import exceptions
 from gitmodel import fields
 
 # attributes that can be overridden in a model's options ("Meta" class)
-META_OPTS = ('id_field', 'make_path', 'workspace')
+META_OPTS = ('id_field', 'get_path_for_id')
 
 
 class GitModelOptions(object):
@@ -60,8 +60,13 @@ class GitModelOptions(object):
                 setattr(self, attr_name, value)
         del self.meta
 
-    def make_path(self, object_id):
-        """Default method for building the path name for model instances"""
+    def get_path_for_id(self, object_id):
+        """
+        Default method for building the path name for a given id.
+
+        This is used my a model instance's get_path() method, which simply
+        passes the current instance id.
+        """
         model_name = self.model_name.lower()
         return os.path.join(model_name, unicode(object_id), 'data.json')
 
@@ -312,7 +317,8 @@ class GitModel(object):
         return getattr(self, self._meta.id_field)
 
     def get_path(self):
-        return self._meta.make_path(unicode(self.get_id()))
+        id = unicode(self.get_id())
+        return self._meta.get_path_for_id(id)
 
     def get_oid(self):
         try:
@@ -355,7 +361,7 @@ class GitModel(object):
         """
         Gets the object associated with the given id
         """
-        path = cls._meta.make_path(id)
+        path = cls._meta.get_path_for_id(id)
         workspace = cls._meta.workspace
         try:
             blob = workspace.index[path].oid
