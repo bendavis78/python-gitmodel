@@ -196,6 +196,34 @@ class EmailField(CharField):
             raise ValidationError('invalid_email', self)
 
 
+class BlobFieldDescriptor(object):
+    def __init__(self, field):
+        self.field = field
+        self.data = None
+
+    def __get__(self, instance, instance_type=None):
+        if self.data is None:
+            workspace = instance._meta.workspace
+            path = self.field.get_path(instance)
+            try:
+                blob = workspace.index[path].oid
+            except KeyError:
+                return None
+            self.data = StringIO(workspace.repo[blob].data)
+        return self.data
+
+    def __set__(self, instance, value):
+        if isinstance(value, self.__class__):
+            # re-set data to read from repo on next __get__
+            self.data = None
+        elif value is None:
+            self.data = StringIO()
+        elif hasattr(value, 'read'):
+            self.data = StringIO(value.read())
+        else:
+            self.data = StringIO(value)
+
+
 class BlobField(Field):
     """
     A field for storing larger amounts of data with a model. This is stored as
@@ -211,31 +239,22 @@ class BlobField(Field):
 
     def post_save(self, value, instance, commit=False):
         workspace = instance._meta.workspace
+        path = self.get_path(instance)
         # the value should already be coerced to a file-like object by now
         content = value.read()
-        workspace.add_blob(self._get_path(instance), content)
+        workspace.add_blob(path, content)
+
+    def get_path(self, instance):
+        path = os.path.dirname(instance.get_path())
+        path = os.path.join(path, self.name)
+        return '{0}.data'.format(path)
+
+    def contribute_to_class(self, cls, name):
+        super(BlobField, self).contribute_to_class(cls, name)
+        setattr(cls, name, BlobFieldDescriptor(self))
 
     def deserialize(self, data, value):
-        workspace = self.model._meta.workspace
-        path = self._get_path(data)
-        try:
-            blob = workspace.index[path].oid
-        except KeyError:
-            return None
-        data = workspace.repo[blob].data
-        return StringIO(data)
-
-    def _get_path(self, instance):
-        from gitmodel import models
-        if isinstance(instance, models.GitModel):
-            path = instance.get_path()
-        else:
-            id_field = self.model._meta.id_field
-            id = instance[id_field]
-            path = self.model._meta.get_path_for_id(id)
-        parent_path = os.path.split(path)[0]
-        return os.path.join(parent_path, self.name)
-
+        return BlobFieldDescriptor(self)
 
 class IntegerField(Field):
     """
