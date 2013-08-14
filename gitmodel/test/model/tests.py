@@ -222,7 +222,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_meta_overrides(self):
         self.assertEqual(self.models.PostAlternate._meta.id_field, 'slug')
 
-    def test_get_path_override(self):
+    def test_custom_path_override(self):
         post = self.models.PostAlternate(slug='foobar', title='Foobar')
         post.save()
         self.assertEqual(post.get_path(), 'post-alt/foobar/data.json')
@@ -240,3 +240,21 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         post_id = self.post.get_id()
         self.assertEqual(author_id, self.models.Author.get(author_id).get_id())
         self.assertEqual(post_id, self.models.Post.get(post_id).get_id())
+
+    def test_requires_meta(self):
+        # import the unregistered model
+        from gitmodel.test.model.models import Author
+
+        self.author.save()
+        id = self.author.get_id()
+
+        err = ('Cannot call .*? because .*? has not been registered with a '
+               'workspace')
+
+        # try to init an unregistered model
+        with self.assertRaisesRegexp(self.exceptions.GitModelError, err):
+            Author(first_name='John', last_name='Doe')
+
+        # try to use .get() on the unregistered model
+        with self.assertRaisesRegexp(self.exceptions.GitModelError, err):
+            Author.get(id)

@@ -7,7 +7,7 @@ from datetime import datetime, date, time
 from StringIO import StringIO
 
 from gitmodel.utils import isodate
-from gitmodel.exceptions import ValidationError
+from gitmodel.exceptions import ValidationError, FieldError
 
 INVALID_PATH_CHARS = ('/', '\000')
 
@@ -256,6 +256,7 @@ class BlobField(Field):
     def deserialize(self, data, value):
         return BlobFieldDescriptor(self)
 
+
 class IntegerField(Field):
     """
     An integer field.
@@ -455,8 +456,32 @@ class RelatedFieldDescriptor(object):
 
 class RelatedField(Field):
     def __init__(self, model, **kwargs):
-        self.to_model = model
+        self._to_model = model
         super(RelatedField, self).__init__(**kwargs)
+
+    @property
+    def to_model(self):
+        if not self.workspace:
+            return self._to_model
+
+        # if to_model is a string, it must be registered on the same workspace
+        if isinstance(self._to_model, basestring):
+            if not self.workspace.models.get(self._to_model):
+                msg = "Could not find model '{0}'".format(self._to_model)
+                raise FieldError(msg)
+            return self.workspace.models[self._to_model]
+
+        # if the model has already been registered with a workspace, use as-is
+        if hasattr(self._to_model, '_meta'):
+            return self._to_model
+
+        # otherwise, check on our own workspace
+        if self.workspace.models.get(self._to_model.__name__):
+            return self.workspace.models[self._to_model.__name__]
+
+        # if it's a model but hasn't been registered, register it on the same
+        # workspace.
+        return self.workspace.register_model(self.to_model)
 
     def to_python(self, value):
         from gitmodel import models
@@ -477,14 +502,5 @@ class RelatedField(Field):
     def contribute_to_class(self, cls, name):
         super(RelatedField, self).contribute_to_class(cls, name)
         if hasattr(cls, '_meta'):
-            # if the class is being created with a workspace, make sure our
-            # to_model is registered with a workspace and that we point to that
-            # new model
-            workspace = cls._meta.workspace
-            if workspace.models.get(self.to_model.__name__):
-                self.to_model = workspace.models[self.to_model.__name__]
-            else:
-                self.to_model = workspace.register_model(self.to_model)
-            if not workspace.models.get(self.to_model.__name__):
-                self.to_model = workspace.regster_model(self.to_model)
+            self.workspace = cls._meta.workspace
         setattr(cls, name, RelatedFieldDescriptor(self))

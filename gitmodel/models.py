@@ -8,14 +8,13 @@ from gitmodel import exceptions
 from gitmodel import fields
 
 # attributes that can be overridden in a model's options ("Meta" class)
-META_OPTS = ('id_field', 'get_path_for_id')
 
 
 class GitModelOptions(object):
     """
     An options class for ``GitModel``.
     """
-    workspace = None
+    meta_opts = ('id_field', 'get_path_for_id')
 
     def __init__(self, meta, workspace):
         self.meta = meta
@@ -51,7 +50,7 @@ class GitModelOptions(object):
                 if name.startswith('_'):
                     del meta_attrs[name]
 
-            override_attrs = [a for a in META_OPTS if a in meta_attrs]
+            override_attrs = [a for a in self.meta_opts if a in meta_attrs]
             for attr_name in override_attrs:
                 value = meta_attrs.pop(attr_name)
                 # if attr is a function, bind it to this instance
@@ -241,15 +240,16 @@ class DeclarativeMetaclass(type):
 
 def requires_meta(func):
     @functools.wraps(func)
-    def inner(cls, *args, **kwargs):
+    def inner(self, *args, **kwargs):
         # this should work for classmethods as well as instance methods
-        if not isinstance(cls, type):
-            cls = cls.__class__
-        if not hasattr(cls, '_meta'):
+        model = self
+        if not isinstance(model, type):
+            model = self.__class__
+        if not hasattr(model, '_meta'):
             msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
-                   "has not been created with a workspace")
-            raise exceptions.GitModelError(msg.format(cls, func))
-        return func(cls, *args, **kwargs)
+                   "has not been registered with a workspace")
+            raise exceptions.GitModelError(msg.format(model, func))
+        return func(self, *args, **kwargs)
     return inner
 
 
@@ -257,6 +257,7 @@ class GitModel(object):
     __metaclass__ = DeclarativeMetaclass
     __workspace__ = None
 
+    @requires_meta
     def __init__(self, **kwargs):
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
@@ -357,6 +358,7 @@ class GitModel(object):
             yield
 
     @classmethod
+    @requires_meta
     def get(cls, id):
         """
         Gets the object associated with the given id
