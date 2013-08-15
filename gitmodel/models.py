@@ -6,6 +6,7 @@ from importlib import import_module
 
 from gitmodel import exceptions
 from gitmodel import fields
+from gitmodel import utils
 
 
 class GitModelOptions(object):
@@ -384,3 +385,18 @@ class GitModel(object):
             raise exceptions.DoesNotExist(msg)
         data = workspace.repo[blob].data
         return cls._meta.serializer.deserialize(cls, data)
+
+    @classmethod
+    @requires_meta
+    def all(cls):
+        """
+        Returns a generator for all instances of this model.
+        """
+        pattern = cls._meta.get_repo_path('*')
+        workspace = cls._meta.workspace
+        repo = workspace.repo
+
+        for path in utils.path.glob(repo, workspace.index, pattern):
+            blob = workspace.index[path].oid
+            data = workspace.repo[blob].data
+            yield cls._meta.serializer.deserialize(cls, data)
