@@ -217,7 +217,7 @@ class BlobFieldDescriptor(object):
             # re-set data to read from repo on next __get__
             self.data = None
         elif value is None:
-            self.data = StringIO()
+            self.data = None
         elif hasattr(value, 'read'):
             self.data = StringIO(value.read())
         else:
