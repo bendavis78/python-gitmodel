@@ -53,9 +53,10 @@ class GitModelOptions(object):
             for attr_name in override_attrs:
                 value = meta_attrs.pop(attr_name)
                 # if attr is a function, bind it to this instance
-                if hasattr(value, '__call__'):
+                if not isinstance(value, type) and hasattr(value, '__call__'):
                     value = value.__get__(self, self.__class__)
                 setattr(self, attr_name, value)
+        self._declared_meta = self.meta
         del self.meta
 
     def get_repo_path(self, object_id):
@@ -162,9 +163,8 @@ class DeclarativeMetaclass(type):
 
         # grab the declared Meta
         meta = attrs.pop('Meta', None)
-        if not meta:
-            # if not declared, make sure we use base's meta
-            meta = getattr(new_class, 'Meta', None)
+        if not meta and parents and hasattr(parents[0], '_meta'):
+            meta = parents[0]._meta._declared_meta
 
         # Add _meta to the new class. The _meta property is an instance of
         # GitModelOptions, based off of the optional declared "Meta" class
