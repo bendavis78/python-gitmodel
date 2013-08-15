@@ -125,8 +125,7 @@ Caveat Emptor
 Git doesn't perform very well on its own. If you need your git-backed data to
 perform well in a production environment, you need to get it a "wingman". 
 Since python-gitmodel can be used in a variety of ways, it's up to you to
-decide the best way to optimize it. To make it a little easier, python-gitmodel
-provides a simple framework for building custom caching and indexing backends.
+decide the best way to optimize it.
 
 Status
 ------
