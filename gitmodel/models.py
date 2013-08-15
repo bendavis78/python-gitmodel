@@ -287,6 +287,18 @@ class GitModel(object):
 
         super(GitModel, self).__init__()
 
+    def __repr__(self):
+        try:
+            u = unicode(self)
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            u = '[Bad Unicode Data]'
+        return u'<{0}: {1}>'.format(self._meta.model_name, u)
+
+    def __str__(self):
+        if hasattr(self, '__unicode__'):
+            return unicode(self).encode('utf-8')
+        return '{0} object'.format(self._meta.model_name)
+
     def save(self, commit=False, **commit_info):
         # make sure model has clean data
         self.full_clean()
