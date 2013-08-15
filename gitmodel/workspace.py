@@ -9,7 +9,7 @@ import pygit2
 from gitmodel import conf
 from gitmodel import exceptions
 from gitmodel import models
-from gitmodel.utils import git
+from gitmodel import utils
 
 
 class Workspace(object):
@@ -190,7 +190,7 @@ class Workspace(object):
         """
         Updates the current index given a path and a list of entries
         """
-        oid = git.build_path(self.repo, path, entries, self.index)
+        oid = utils.path.build_path(self.repo, path, entries, self.index)
         self.index = self.repo[oid]
 
     def add_blob(self, path, content, mode=pygit2.GIT_FILEMODE_BLOB):
@@ -263,9 +263,9 @@ class Workspace(object):
             committer = author
 
         default_offset = self.config.get('DEFAULT_TZ_OFFSET', None)
-        author = git.make_signature(*author, default_offset=default_offset)
-        committer = git.make_signature(*committer,
-                                       default_offset=default_offset)
+        author = utils.make_signature(*author, default_offset=default_offset)
+        committer = utils.make_signature(*committer,
+                                         default_offset=default_offset)
 
         if parents is None:
             try:
