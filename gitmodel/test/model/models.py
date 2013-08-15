@@ -42,3 +42,15 @@ class PostAlternate(GitModel):
     class Meta:
         id_field = 'slug'
         get_repo_path = get_path_custom
+
+
+class AbstractBase(GitModel):
+    field_one = fields.CharField()
+    field_two = fields.CharField()
+
+    class Meta:
+        abstract = True
+
+
+class Concrete(AbstractBase):
+    field_three = fields.CharField()

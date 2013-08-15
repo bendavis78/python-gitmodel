@@ -241,7 +241,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(author_id, self.models.Author.get(author_id).get_id())
         self.assertEqual(post_id, self.models.Post.get(post_id).get_id())
 
-    def test_requires_meta(self):
+    def test_concrete(self):
         # import the unregistered model
         from gitmodel.test.model.models import Author
 
@@ -258,3 +258,22 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # try to use .get() on the unregistered model
         with self.assertRaisesRegexp(self.exceptions.GitModelError, err):
             Author.get(id)
+
+    def test_abstract(self):
+        # try to do stuff on an abstract model
+        with self.assertRaises(self.exceptions.GitModelError):
+            self.models.AbstractBase.get()
+
+        with self.assertRaises(self.exceptions.GitModelError):
+            self.models.AbstractBase.get('1')
+
+        with self.assertRaises(self.exceptions.GitModelError):
+            self.models.AbstractBase.all()
+
+        concrete = self.models.Concrete(field_one='1', field_two='2',
+                                        field_three='3')
+        concrete.save()
+        test_concrete = self.models.Concrete.get(id=concrete.id)
+        self.assertEqual(test_concrete.field_one, '1')
+        self.assertEqual(test_concrete.field_two, '2')
+        self.assertEqual(test_concrete.field_three, '3')

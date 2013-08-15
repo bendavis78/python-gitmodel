@@ -1,5 +1,6 @@
 import os
 import functools
+from copy import copy
 from bisect import bisect
 from contextlib import contextmanager
 from importlib import import_module
@@ -18,6 +19,7 @@ class GitModelOptions(object):
 
     def __init__(self, meta, workspace):
         self.meta = meta
+        self.abstract = False
         self.local_fields = []
         self.local_many_to_many = []
         self.model_name = None
@@ -164,8 +166,15 @@ class DeclarativeMetaclass(type):
 
         # grab the declared Meta
         meta = attrs.pop('Meta', None)
-        if not meta and parents and hasattr(parents[0], '_meta'):
-            meta = parents[0]._meta._declared_meta
+        base_meta = None
+        if parents and hasattr(parents[0], '_meta'):
+            base_meta = copy(parents[0]._meta._declared_meta)
+            # certain meta attributes should not be inherited
+            if hasattr(base_meta, 'abstract'):
+                base_meta.abstract = False
+
+        if not meta and base_meta:
+            meta = base_meta
 
         # Add _meta to the new class. The _meta property is an instance of
         # GitModelOptions, based off of the optional declared "Meta" class
@@ -238,7 +247,10 @@ class DeclarativeMetaclass(type):
             setattr(cls, name, value)
 
 
-def requires_meta(func):
+def concrete(func):
+    """
+    Causes a model's method to require a non-abstract workspace-bound model.
+    """
     @functools.wraps(func)
     def inner(self, *args, **kwargs):
         # this should work for classmethods as well as instance methods
@@ -249,6 +261,9 @@ def requires_meta(func):
             msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
                    "has not been registered with a workspace")
             raise exceptions.GitModelError(msg.format(model, func))
+        if model._meta.abstract:
+            msg = "Cannot call {1.__name__}() abstract model {0.__name__} "
+            raise exceptions.GitModelError(msg.format(model, func))
         return func(self, *args, **kwargs)
     return inner
 
@@ -257,7 +272,7 @@ class GitModel(object):
     __metaclass__ = DeclarativeMetaclass
     __workspace__ = None
 
-    @requires_meta
+    @concrete
     def __init__(self, **kwargs):
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
@@ -370,7 +385,7 @@ class GitModel(object):
             yield
 
     @classmethod
-    @requires_meta
+    @concrete
     def get(cls, id):
         """
         Gets the object associated with the given id
@@ -387,7 +402,7 @@ class GitModel(object):
         return cls._meta.serializer.deserialize(cls, data)
 
     @classmethod
-    @requires_meta
+    @concrete
     def all(cls):
         """
         Returns a generator for all instances of this model.
