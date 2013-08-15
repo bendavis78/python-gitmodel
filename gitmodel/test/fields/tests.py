@@ -245,3 +245,18 @@ class InheritedFieldTest(TestInstancesMixin, GitModelTestCase):
         # get user
         user_retreived = self.models.User.get(user.id)
         self.assertEqual(user_retreived.last_read.get_id(), self.post.get_id())
+
+
+class JSONFieldTest(TestInstancesMixin, GitModelTestCase):
+    def test_json_field(self):
+        metadata = {
+            'foo': 'bar',
+            'baz': 'qux'
+        }
+        self.author.save()
+        self.post.author = self.author
+        self.post.metadata = metadata
+        self.post.save()
+        post = self.models.Post.get(self.post.slug)
+        self.assertIsInstance(post.metadata, dict)
+        self.assertDictEqual(post.metadata, metadata)

@@ -29,6 +29,7 @@ class Post(models.GitModel):
     title = fields.CharField()
     body = fields.CharField()
     image = fields.BlobField(required=False)
+    metadata = fields.JSONField(required=False)
 
 
 class User(Person):

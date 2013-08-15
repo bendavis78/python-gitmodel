@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime, date, time
 from StringIO import StringIO
 
-from gitmodel.utils import isodate
+from gitmodel.utils import isodate, json
 from gitmodel.exceptions import ValidationError, FieldError
 
 INVALID_PATH_CHARS = ('/', '\000')
@@ -504,3 +504,15 @@ class RelatedField(Field):
         if hasattr(cls, '_meta'):
             self.workspace = cls._meta.workspace
         setattr(cls, name, RelatedFieldDescriptor(self))
+
+
+class JSONField(CharField):
+    def to_python(self, value):
+        if value is None:
+            return None
+        if isinstance(value, dict):
+            return value
+        try:
+            return json.loads(value)
+        except ValueError, e:
+            raise ValidationError(e)
