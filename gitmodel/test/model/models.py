@@ -41,4 +41,4 @@ class PostAlternate(GitModel):
 
     class Meta:
         id_field = 'slug'
-        get_path_for_id = get_path_custom
+        get_repo_path = get_path_custom
