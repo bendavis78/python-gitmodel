@@ -201,6 +201,10 @@ class DeclarativeMetaclass(type):
             new_class._meta.parents.append(parent)
 
         new_class._prepare()
+
+        # make sure the model is registered in its workspace
+        workspace.register_model(new_class)
+
         return new_class
 
     def _check_parent_fields(cls, parent, child=None):

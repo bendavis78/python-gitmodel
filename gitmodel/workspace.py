@@ -83,8 +83,13 @@ class Workspace(object):
             return self.models[name]
 
         if hasattr(cls, '_meta'):
-            msg = "{0} is already registered with a workspace"
-            raise ValueError(msg.format(cls.__name__))
+            if cls._meta.workspace != self:
+                msg = "{0} is already registered with a different workspace"
+                raise ValueError(msg.format(cls.__name__))
+            # class has already been created with _meta, so we just register
+            # and return it.
+            self.models[name] = cls
+            return cls
 
         metaclass = models.DeclarativeMetaclass
         attrs = dict(cls.__dict__, **{
