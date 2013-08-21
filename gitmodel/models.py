@@ -403,7 +403,7 @@ class GitModel(object):
             msg = "{} with id {} does not exist.".format(name, id)
             raise exceptions.DoesNotExist(msg)
         data = workspace.repo[blob].data
-        return cls._meta.serializer.deserialize(cls, data)
+        return cls._meta.serializer.deserialize(workspace, data)
 
     @classmethod
     @concrete
@@ -411,11 +411,11 @@ class GitModel(object):
         """
         Returns a generator for all instances of this model.
         """
-        pattern = cls._meta.get_repo_path('*')
+        pattern = cls._meta.get_data_path('*')
         workspace = cls._meta.workspace
         repo = workspace.repo
 
         for path in utils.path.glob(repo, workspace.index, pattern):
             blob = workspace.index[path].oid
             data = workspace.repo[blob].data
-            yield cls._meta.serializer.deserialize(cls, data)
+            yield cls._meta.serializer.deserialize(workspace, data)

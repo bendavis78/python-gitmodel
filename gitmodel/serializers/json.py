@@ -37,7 +37,7 @@ def serialize(obj, fields=None, stream=None, **options):
     return stream
 
 
-def deserialize(model, data, **options):
+def deserialize(workspace, data, **options):
     """
     Load a JSON object string as a GitModel instance.
 
@@ -48,7 +48,7 @@ def deserialize(model, data, **options):
     options: additional options to pass to json.loads()
     """
     data = json.loads(data, **options)
-    return python.deserialize(model, data)
+    return python.deserialize(workspace, data)
 
 
 class GitModelJSONEncoder(json.JSONEncoder):

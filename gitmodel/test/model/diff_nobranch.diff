@@ -4,5 +4,5 @@ index 0000000..{1}
 --- /dev/null
 +++ b/{0}
 @@ -0,0 +1 @@
-+{{"first_name": "John", "last_name": "Doe", "id": "{2}", "language": "en-US", "email": "jdoe@example.com"}}
++{{"fields": {{"first_name": "John", "last_name": "Doe", "id": "{2}", "language": "en-US", "email": "jdoe@example.com"}}, "model": "Author"}}
 \ No newline at end of file

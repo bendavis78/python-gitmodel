@@ -93,11 +93,14 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # verify data
         data = json.loads(blob.data)
         self.assertItemsEqual(data, {
-            'id': self.author.get_id(),
-            'first_name': 'John',
-            'last_name': 'Doe',
-            'email': 'jdoe@example.com',
-            'language': '',
+            'model': 'Author',
+            'fields': {
+                'id': self.author.get_id(),
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'email': 'jdoe@example.com',
+                'language': '',
+            }
         })
 
     def test_save_commit(self):
@@ -120,11 +123,14 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # verify data
         data = json.loads(blob.data)
         self.assertItemsEqual(data, {
-            'id': self.author.get_id(),
-            'first_name': 'John',
-            'last_name': 'Doe',
-            'email': 'jdoe@example.com',
-            'language': '',
+            'model': 'Author',
+            'fields': {
+                'id': self.author.get_id(),
+                'first_name': 'John',
+                'last_name': 'Doe',
+                'email': 'jdoe@example.com',
+                'language': '',
+            }
         })
 
     def test_diff_nobranch(self):
