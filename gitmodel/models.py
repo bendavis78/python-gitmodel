@@ -15,7 +15,7 @@ class GitModelOptions(object):
     An options class for ``GitModel``.
     """
     # attributes that can be overridden in a model's options ("Meta" class)
-    meta_opts = ('abstract', 'id_field', 'get_repo_path')
+    meta_opts = ('abstract', 'id_field', 'get_data_path')
 
     def __init__(self, meta, workspace):
         self.meta = meta
@@ -62,7 +62,7 @@ class GitModelOptions(object):
         self._declared_meta = self.meta
         del self.meta
 
-    def get_repo_path(self, object_id):
+    def get_data_path(self, object_id):
         """
         Default method for building the path name for a given id.
 
@@ -346,7 +346,7 @@ class GitModel(object):
 
     def get_path(self):
         id = unicode(self.get_id())
-        return self._meta.get_repo_path(id)
+        return self._meta.get_data_path(id)
 
     def get_oid(self):
         try:
@@ -390,7 +390,7 @@ class GitModel(object):
         """
         Gets the object associated with the given id
         """
-        path = cls._meta.get_repo_path(id)
+        path = cls._meta.get_data_path(id)
         workspace = cls._meta.workspace
         try:
             blob = workspace.index[path].oid
