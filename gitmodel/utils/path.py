@@ -180,3 +180,27 @@ def path_exists(tree, path):
     except KeyError:
         return False
     return True
+
+
+def walk(repo, tree, topdown=True):
+    """
+    Similar to os.walk(), using the given tree as a reference point.
+    """
+    names = lambda entries: [e.name for e in entries]
+
+    dirs, nondirs = [], []
+    for e in tree:
+        is_tree = repo[e.oid].type == pygit2.GIT_OBJ_TREE
+        if is_tree:
+            dirs.append(e)
+        else:
+            nondirs.append(e)
+
+    if topdown:
+        yield tree, names(dirs), names(nondirs)
+    for entry in dirs:
+        new_tree = repo[entry.oid]
+        for x in walk(repo, new_tree, topdown):
+            yield x
+    if not topdown:
+        yield tree, names(dirs), names(nondirs)

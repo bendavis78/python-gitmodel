@@ -66,7 +66,7 @@ class GitModelOptions(object):
         """
         Default method for building the path name for a given id.
 
-        This is used by a model instance's get_path() method, which simply
+        This is used by a model instance's get_data_path() method, which simply
         passes the instance id.
         """
         model_name = self.model_name.lower()
@@ -335,7 +335,7 @@ class GitModel(object):
             raise exceptions.RepositoryError(msg)
 
         # create the entry
-        workspace.add_blob(self.get_path(), serialized)
+        workspace.add_blob(self.get_data_path(), serialized)
 
         # go through fields that have their own commit handler
         for field in self._meta.fields:
@@ -348,13 +348,13 @@ class GitModel(object):
     def get_id(self):
         return getattr(self, self._meta.id_field)
 
-    def get_path(self):
+    def get_data_path(self):
         id = unicode(self.get_id())
         return self._meta.get_data_path(id)
 
     def get_oid(self):
         try:
-            return self._meta.workspace.index[self.get_path()].oid
+            return self._meta.workspace.index[self.get_data_path()].oid
         except KeyError:
             return None
 

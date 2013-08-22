@@ -204,7 +204,7 @@ class BlobFieldDescriptor(object):
     def __get__(self, instance, instance_type=None):
         if self.data is None:
             workspace = instance._meta.workspace
-            path = self.field.get_path(instance)
+            path = self.field.get_data_path(instance)
             try:
                 blob = workspace.index[path].oid
             except KeyError:
@@ -239,13 +239,13 @@ class BlobField(Field):
 
     def post_save(self, value, instance, commit=False):
         workspace = instance._meta.workspace
-        path = self.get_path(instance)
+        path = self.get_data_path(instance)
         # the value should already be coerced to a file-like object by now
         content = value.read()
         workspace.add_blob(path, content)
 
-    def get_path(self, instance):
-        path = os.path.dirname(instance.get_path())
+    def get_data_path(self, instance):
+        path = os.path.dirname(instance.get_data_path())
         path = os.path.join(path, self.name)
         return '{0}.data'.format(path)
 

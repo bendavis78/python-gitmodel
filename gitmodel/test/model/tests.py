@@ -66,9 +66,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         author.first_name = 'John'
         self.assertEqual(author.first_name, 'John')
 
-    def test_get_path(self):
+    def test_get_data_path(self):
         self.author.save()
-        path = self.author.get_path()
+        path = self.author.get_data_path()
         test_path = 'author/{}/data.json'.format(self.author.get_id())
         self.assertEqual(path, test_path)
 
@@ -76,7 +76,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.save(commit=True)
         test_oid = self.author.get_oid()
         self.assertIsNotNone(test_oid)
-        obj = self.workspace.index[self.author.get_path()]
+        obj = self.workspace.index[self.author.get_data_path()]
         self.assertEqual(obj.oid, test_oid)
 
     def test_field_default(self):
@@ -87,7 +87,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.save()
 
         # get json from the returned tree using pygit2 code
-        entry = self.workspace.index[self.author.get_path()]
+        entry = self.workspace.index[self.author.get_data_path()]
         blob = self.workspace.repo[entry.oid]
 
         # verify data
@@ -117,7 +117,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(commit.message, 'Testing save with commit')
 
         # get json from the returned tree using pygit2 code
-        entry = commit.tree[self.author.get_path()]
+        entry = commit.tree[self.author.get_data_path()]
         blob = self.workspace.repo[entry.oid]
 
         # verify data
@@ -138,23 +138,23 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.maxDiff = None
         self.author.save()
         self.assertTrue(self.workspace.has_changes())
-        blob_hash = self.workspace.index[self.author.get_path()].hex[:7]
+        blob_hash = self.workspace.index[self.author.get_data_path()].hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__),
                                  'diff_nobranch.diff')).read()
-        diff = diff.format(self.author.get_path(), blob_hash, self.author.id)
+        diff = diff.format(self.author.get_data_path(), blob_hash, self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_diff_branch(self):
         # Tests a diff when a save is made with previous commits
         self.maxDiff = None
         self.author.save(commit=True, message="Test first commit")
-        blob_hash_1 = self.workspace.index[self.author.get_path()].hex[:7]
+        blob_hash_1 = self.workspace.index[self.author.get_data_path()].hex[:7]
         self.author.first_name = 'Jane'
         self.author.save()
-        blob_hash_2 = self.workspace.index[self.author.get_path()].hex[:7]
+        blob_hash_2 = self.workspace.index[self.author.get_data_path()].hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__),
                                  'diff_branch.diff')).read()
-        diff = diff.format(self.author.get_path(), blob_hash_1, blob_hash_2,
+        diff = diff.format(self.author.get_data_path(), blob_hash_1, blob_hash_2,
                            self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
@@ -231,7 +231,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_custom_path_override(self):
         post = self.models.PostAlternate(slug='foobar', title='Foobar')
         post.save()
-        self.assertEqual(post.get_path(), 'post-alt/foobar/data.json')
+        self.assertEqual(post.get_data_path(), 'post-alt/foobar/data.json')
 
     def test_commit_when_pending_changes(self):
         self.author.save()
