@@ -319,6 +319,19 @@ class Workspace(object):
             return False
         return True
 
+    def sync_repo_index(self, checkout=True):
+        """
+        Updates the git repository's index with the current workspace index.
+        If ``checkout`` is ``True``, the filesystem will be updated with the
+        contents of the index.
+
+        This is useful if you want to utilize the git repository using standard
+        git tools.
+        """
+        self.repo.index.read_tree(self.index.oid)
+        if checkout:
+            self.repo.checkout()
+
 
 class Branch(object):
     """
