@@ -304,14 +304,15 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_all(self):
         author1 = self.author
         author2 = self.models.Author(
-            first_name='Jane',
+            first_name='Zeb',
             last_name='Doe',
-            email='janedoe@example.com'
+            email='zdoe@example.com'
         )
         author1.save()
         author2.save()
         authors = self.models.Author.all()
         self.assertTrue(hasattr(authors, '__iter__'))
         authors = list(authors)
-        authors.sort(key=lambda a: a.id)
-        self.assertEqual(list(authors)[0].id, author1.id)
+        authors.sort(key=lambda a: a.first_name)
+        self.assertEqual(authors[0].id, author1.id)
+        self.assertEqual(authors[1].id, author2.id)
