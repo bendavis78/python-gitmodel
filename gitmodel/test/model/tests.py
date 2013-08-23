@@ -284,3 +284,18 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(test_concrete.field_one, '1')
         self.assertEqual(test_concrete.field_two, '2')
         self.assertEqual(test_concrete.field_three, '3')
+
+    def test_all(self):
+        author1 = self.author
+        author2 = self.models.Author(
+            first_name='Jane',
+            last_name='Doe',
+            email='janedoe@example.com'
+        )
+        author1.save()
+        author2.save()
+        authors = self.models.Author.all()
+        self.assertTrue(hasattr(authors, '__iter__'))
+        authors = list(authors)
+        authors.sort(key=lambda a: a.id)
+        self.assertEqual(list(authors)[0].id, author1.id)
