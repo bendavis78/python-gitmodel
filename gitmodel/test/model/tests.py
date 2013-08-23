@@ -52,8 +52,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
             'language'
         ])
 
-    def test_has_id_field(self):
-        self.assertIsNotNone(self.author._meta.id_field)
+    def test_has_id_attr(self):
+        self.assertIsNotNone(self.author._meta.id_attr)
 
     def test_id(self):
         self.assertTrue(hasattr(self.author, 'id'))
@@ -141,7 +141,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         blob_hash = self.workspace.index[self.author.get_data_path()].hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__),
                                  'diff_nobranch.diff')).read()
-        diff = diff.format(self.author.get_data_path(), blob_hash, self.author.id)
+        diff = diff.format(self.author.get_data_path(), blob_hash,
+                           self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_diff_branch(self):
@@ -154,8 +155,8 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         blob_hash_2 = self.workspace.index[self.author.get_data_path()].hex[:7]
         diff = open(os.path.join(os.path.dirname(__file__),
                                  'diff_branch.diff')).read()
-        diff = diff.format(self.author.get_data_path(), blob_hash_1, blob_hash_2,
-                           self.author.id)
+        diff = diff.format(self.author.get_data_path(), blob_hash_1,
+                           blob_hash_2, self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_save_commit_history(self):
@@ -201,7 +202,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         with self.assertRaises(self.exceptions.ValidationError):
             test_author.save()
 
-    def test_custom_id_field(self):
+    def test_custom_id_attr(self):
         # id should resolve to the slug field, since slug is marked as id=True
         self.post.save()
         self.assertEqual(self.post.get_id(), self.post.slug)
@@ -226,7 +227,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
                 date_joined = self.fields.DateField()
 
     def test_meta_overrides(self):
-        self.assertEqual(self.models.PostAlternate._meta.id_field, 'slug')
+        self.assertEqual(self.models.PostAlternate._meta.id_attr, 'slug')
 
     def test_custom_path_override(self):
         post = self.models.PostAlternate(slug='foobar', title='Foobar')

@@ -40,7 +40,7 @@ class PostAlternate(GitModel):
     title = fields.CharField()
 
     class Meta:
-        id_field = 'slug'
+        id_attr = 'slug'
         get_data_path = get_path_custom
 
 

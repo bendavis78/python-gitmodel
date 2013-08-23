@@ -15,7 +15,7 @@ class GitModelOptions(object):
     An options class for ``GitModel``.
     """
     # attributes that can be overridden in a model's options ("Meta" class)
-    meta_opts = ('abstract', 'id_field', 'get_data_path')
+    meta_opts = ('abstract', 'id_attr', 'get_data_path')
 
     def __init__(self, meta, workspace):
         self.meta = meta
@@ -24,7 +24,7 @@ class GitModelOptions(object):
         self.local_many_to_many = []
         self.model_name = None
         self.parents = []
-        self.id_field = None
+        self.id_attr = None
         self.workspace = workspace
         self._serializer = None
 
@@ -119,20 +119,20 @@ class GitModelOptions(object):
 
     def _prepare(self, model):
         # set up id field
-        if self.id_field is None:
+        if self.id_attr is None:
             declared_id_fields = [f for f in self.fields if f.id]
             if len(declared_id_fields) > 1:
                 msg = "You may only have one id field per model"
                 raise exceptions.ConfigurationError(msg)
             elif len(declared_id_fields) == 1:
-                self.id_field = declared_id_fields[0].name
+                self.id_attr = declared_id_fields[0].name
             else:
                 # add an automatic uuid field
                 auto = fields.UUIDField(id=True, autocreated=True)
                 # add to the beginning of the fields list
                 auto.creation_counter = -1
                 model.add_to_class('id', auto)
-                self.id_field = 'id'
+                self.id_attr = 'id'
 
 
 class DeclarativeMetaclass(type):
@@ -346,7 +346,7 @@ class GitModel(object):
             return workspace.commit(**commit_info)
 
     def get_id(self):
-        return getattr(self, self._meta.id_field)
+        return getattr(self, self._meta.id_attr)
 
     def get_data_path(self):
         id = unicode(self.get_id())
