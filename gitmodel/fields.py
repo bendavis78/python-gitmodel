@@ -235,9 +235,13 @@ class BlobField(Field):
     def to_python(self, value):
         if hasattr(value, 'read'):
             return value
+        if value is None:
+            return None
         return StringIO(value)
 
     def post_save(self, value, instance, commit=False):
+        if value is None:
+            return
         workspace = instance._meta.workspace
         path = self.get_data_path(instance)
         # the value should already be coerced to a file-like object by now
