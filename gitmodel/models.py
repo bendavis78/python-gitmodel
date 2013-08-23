@@ -109,11 +109,16 @@ class GitModelOptions(object):
         Caches all fields, including fields from parents.
         """
         cache = []
+        has_id_attr = self.id_attr or any(f.id for f in self.local_fields)
         for parent in self.parents:
             for field in parent._meta.fields:
+                # skip if overridden locally
+                if field.name in (f.name for f in self.local_fields):
+                    continue
                 # only add id field if not specified locally
-                if not (field.id and any(f.id for f in self.local_fields)):
-                    cache.append(field)
+                if field.id and has_id_attr:
+                    continue
+                cache.append(field)
         cache.extend(self.local_fields)
         self._field_cache = tuple(cache)
 

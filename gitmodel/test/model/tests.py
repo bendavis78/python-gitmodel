@@ -175,7 +175,9 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_get_simple_object(self):
         self.author.save(commit=True)
+        id = self.author.id
         author = self.models.Author.get(self.author.get_id())
+        self.assertEqual(author.id, id)
         self.assertEqual(author.first_name, 'John')
         self.assertEqual(author.last_name, 'Doe')
         self.assertEqual(author.email, 'jdoe@example.com')
@@ -206,6 +208,20 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         # id should resolve to the slug field, since slug is marked as id=True
         self.post.save()
         self.assertEqual(self.post.get_id(), self.post.slug)
+
+    def test_overridden_id_field(self):
+        # tests bug that occured when overriding the id field and not using
+        # that field as the id_attr
+        class Resource(self.models.GitModel):
+            __workspace__ = self.workspace
+            id = self.fields.UUIDField()
+            path = self.fields.CharField()
+
+            class Meta:
+                id_attr = 'path'
+
+        fields_named_id = (f for f in Resource._meta.fields if f.name == 'id')
+        self.assertEqual(len(tuple(fields_named_id)), 1)
 
     def test_basic_inheritance(self):
         fields = [f.name for f in self.models.User._meta.fields]
