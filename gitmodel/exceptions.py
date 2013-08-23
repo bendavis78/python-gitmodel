@@ -55,3 +55,10 @@ class ValidationError(GitModelError):
         else:
             msg = msg_or_code
         super(ValidationError, self).__init__(msg)
+
+class IntegrityError(GitModelError):
+    """
+    Raised when a save results in duplicate values
+    """
+    pass
+

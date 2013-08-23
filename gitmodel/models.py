@@ -16,6 +16,7 @@ class GitModelOptions(object):
     """
     # attributes that can be overridden in a model's options ("Meta" class)
     meta_opts = ('abstract', 'id_attr', 'get_data_path')
+    reserved = ('oid',)
 
     def __init__(self, meta, workspace):
         self.meta = meta
@@ -74,6 +75,9 @@ class GitModelOptions(object):
 
     def add_field(self, field):
         """ Insert a field into the fields list in correct order """
+        if field.name in self.reserved:
+            raise exceptions.FieldError("{} is a reserved name and cannot be"
+                                        "used as a field name.")
         # bisect calls field.__cmp__ which uses field.creation_counter to
         # maintain the correct order
         position = bisect(self.local_fields, field)
@@ -283,6 +287,16 @@ class GitModel(object):
 
     @concrete
     def __init__(self, **kwargs):
+        """
+        Create an instance of a GitModel.
+
+        Field name/value pairs may be provided as kwargs to set the initial
+        value for those fields. If "oid" is provided in kwargs, it is assumed
+        that this model is being instantiated from an existing instance in the
+        git repository. Deserializing a model will automatically set this oid.
+        """
+        self._oid = kwargs.pop('oid', None)
+
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
         for field in self._meta.fields:
@@ -328,6 +342,19 @@ class GitModel(object):
         # make sure model has clean data
         self.full_clean()
 
+        # if this is new, make sure we don't overwrite an existing instance by
+        # accident
+        if not self.oid:
+            id = self.get_id()
+            try:
+                self.__class__.get(id)
+            except exceptions.DoesNotExist:
+                pass
+            else:
+                err = 'A {} instance already exists with id "{}"'.format(
+                    self.__class__.__name__, self.get_id())
+                raise exceptions.IntegrityError(err)
+
         serialized = self._meta.serializer.serialize(self)
 
         workspace = self._meta.workspace
@@ -339,10 +366,10 @@ class GitModel(object):
                   "pending changes have been comitted."
             raise exceptions.RepositoryError(msg)
 
-        # create the entry
-        workspace.add_blob(self.get_data_path(), serialized)
+        # create the git object and set the instance oid
+        self._oid = workspace.add_blob(self.get_data_path(), serialized)
 
-        # go through fields that have their own commit handler
+        # go through fields that have their own save handler
         for field in self._meta.fields:
             value = getattr(self, field.name)
             field.post_save(value, self, commit)
@@ -357,11 +384,13 @@ class GitModel(object):
         id = unicode(self.get_id())
         return self._meta.get_data_path(id)
 
-    def get_oid(self):
-        try:
-            return self._meta.workspace.index[self.get_data_path()].oid
-        except KeyError:
-            return None
+    @property
+    def oid(self):
+        """
+        The OID of the git blob used to store this object. This is a read-only
+        property.
+        """
+        return self._oid
 
     def clean(self):
         """
@@ -408,7 +437,7 @@ class GitModel(object):
             msg = "{} with id {} does not exist.".format(name, id)
             raise exceptions.DoesNotExist(msg)
         data = workspace.repo[blob].data
-        return cls._meta.serializer.deserialize(workspace, data)
+        return cls._meta.serializer.deserialize(workspace, data, blob)
 
     @classmethod
     @concrete
@@ -423,4 +452,4 @@ class GitModel(object):
         for path in utils.path.glob(repo, workspace.index, pattern):
             blob = workspace.index[path].oid
             data = workspace.repo[blob].data
-            yield cls._meta.serializer.deserialize(workspace, data)
+            yield cls._meta.serializer.deserialize(workspace, data, blob)

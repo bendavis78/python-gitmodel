@@ -72,9 +72,14 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         test_path = 'author/{}/data.json'.format(self.author.get_id())
         self.assertEqual(path, test_path)
 
+    def test_save_oid(self):
+        self.assertIsNone(self.author.oid)
+        self.author.save(commit=True)
+        self.assertIsNotNone(self.author.oid)
+
     def test_get_oid(self):
         self.author.save(commit=True)
-        test_oid = self.author.get_oid()
+        test_oid = self.author.oid
         self.assertIsNotNone(test_oid)
         obj = self.workspace.index[self.author.get_data_path()]
         self.assertEqual(obj.oid, test_oid)
@@ -316,3 +321,14 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         authors.sort(key=lambda a: a.first_name)
         self.assertEqual(authors[0].id, author1.id)
         self.assertEqual(authors[1].id, author2.id)
+
+    def test_unique_id(self):
+        self.post.save()
+        p2 = self.models.Post(
+            slug='test-post',
+            title='A duplicate test post',
+            body='Lorem ipsum dupor sit amet',
+        )
+        err = 'A .*? instance already exists with id .*?'
+        with self.assertRaisesRegexp(self.exceptions.IntegrityError, err):
+            p2.save()

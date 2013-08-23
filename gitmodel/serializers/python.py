@@ -22,7 +22,7 @@ def serialize(obj, fields):
     return pyobj
 
 
-def deserialize(workspace, data):
+def deserialize(workspace, data, oid):
     """
     Load a python dict as a GitModel instance.
 
@@ -30,7 +30,7 @@ def deserialize(workspace, data):
 
     data: a valid JSON string
     """
-    attrs = {}
+    attrs = {'oid': oid}
     model = workspace.models[data['model']]
     for field in model._meta.fields:
         value = data['fields'].get(field.name)
