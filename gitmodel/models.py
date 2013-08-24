@@ -377,6 +377,19 @@ class GitModel(object):
         if commit:
             return workspace.commit(**commit_info)
 
+    def delete(self, commit=False, **commit_info):
+        """
+        Removes the object from its parent tree. This is a recursive operation,
+        so if the path contains a directory, it will be removed along with its
+        contents.
+        """
+        path, _ = os.path.split(self.get_data_path())
+        self._meta.workspace.remove(path)
+        self._oid = None
+
+        if commit:
+            return self.workspace.commit(**commit_info)
+
     def get_id(self):
         return getattr(self, self._meta.id_attr)
 

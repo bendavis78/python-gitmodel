@@ -96,6 +96,14 @@ class GitModelWorkspaceTest(GitModelTestCase):
         entry = self.workspace.index['test.txt']
         self.assertEqual(self.repo[entry.oid].data, 'Test')
 
+    def test_remove(self):
+        self.workspace.add_blob('test.txt', 'Test')
+        entry = self.workspace.index['test.txt']
+        self.assertEqual(self.repo[entry.oid].data, 'Test')
+        self.workspace.remove('test.txt')
+        with self.assertRaises(KeyError):
+            self.workspace.index['test.txt']
+
     def test_commit_on_success(self):
         with self.workspace.commit_on_success('Test commit'):
             self.workspace.add_blob('test.txt', 'Test')

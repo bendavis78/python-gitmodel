@@ -198,6 +198,20 @@ class Workspace(object):
         oid = utils.path.build_path(self.repo, path, entries, self.index)
         self.index = self.repo[oid]
 
+    def remove(self, path):
+        """
+        Removes an item from the index
+        """
+        parent, name = os.path.split(path)
+        if not parent:
+            parent = self.index
+        else:
+            parent = self.index[parent]
+        tb = self.repo.TreeBuilder(parent.oid)
+        tb.remove(name)
+        oid = tb.write()
+        self.index = self.repo[oid]
+
     def add_blob(self, path, content, mode=pygit2.GIT_FILEMODE_BLOB):
         """
         Creates a blob object and adds it to the current index

@@ -108,6 +108,15 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
             }
         })
 
+    def test_delete(self):
+        self.author.save()
+        id = self.author.get_id()
+        get_author = self.models.Author.get(id)
+        self.assertEqual(id, get_author.get_id())
+        self.author.delete()
+        with self.assertRaises(self.exceptions.DoesNotExist):
+            self.models.Author.get(id)
+
     def test_save_commit(self):
         commit_info = {
             'author': ('John Doe', 'jdoe@example.com'),
