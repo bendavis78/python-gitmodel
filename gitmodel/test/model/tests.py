@@ -111,11 +111,16 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
     def test_delete(self):
         self.author.save()
         id = self.author.get_id()
+        self.post.save()
+        post_id = self.post.get_id()
         get_author = self.models.Author.get(id)
         self.assertEqual(id, get_author.get_id())
         self.author.delete()
         with self.assertRaises(self.exceptions.DoesNotExist):
             self.models.Author.get(id)
+        # make sure our index isn't borked
+        post = self.models.Post.get(post_id)
+        self.assertEqual(post.get_id(), post_id)
 
     def test_save_commit(self):
         commit_info = {
