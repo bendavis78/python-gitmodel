@@ -15,7 +15,7 @@ class GitModelOptions(object):
     An options class for ``GitModel``.
     """
     # attributes that can be overridden in a model's options ("Meta" class)
-    meta_opts = ('abstract', 'id_attr', 'get_data_path')
+    meta_opts = ('abstract', 'id_attr', 'get_data_path', 'data_filename')
     reserved = ('oid',)
 
     def __init__(self, meta, workspace):
@@ -27,6 +27,7 @@ class GitModelOptions(object):
         self.parents = []
         self.id_attr = None
         self.workspace = workspace
+        self.data_filename = 'data.json'
         self._serializer = None
 
     @property
@@ -71,7 +72,7 @@ class GitModelOptions(object):
         passes the instance id.
         """
         model_name = self.model_name.lower()
-        return os.path.join(model_name, unicode(object_id), 'data.json')
+        return os.path.join(model_name, unicode(object_id), self.data_filename)
 
     def add_field(self, field):
         """ Insert a field into the fields list in correct order """
