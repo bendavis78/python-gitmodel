@@ -375,6 +375,16 @@ class GitModel(object):
             value = getattr(self, field.name)
             field.post_save(value, self, commit)
 
+        # if our path has changed, remove the old path. This generally only
+        # happens with a custom mutable id_attr.
+        old_path = getattr(self, '_current_path', None)
+        new_path = self.get_data_path()
+        if old_path and old_path != new_path:
+            rmpath = os.path.dirname(old_path)
+            self._meta.workspace.remove(rmpath)
+
+        self._current_path = self.get_data_path()
+
         if commit:
             return workspace.commit(**commit_info)
 
@@ -384,7 +394,7 @@ class GitModel(object):
         so if the path contains a directory, it will be removed along with its
         contents.
         """
-        path, _ = os.path.split(self.get_data_path())
+        path = os.path.dirname(self.get_data_path())
         self._meta.workspace.remove(path)
         self._oid = None
 

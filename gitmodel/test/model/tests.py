@@ -346,3 +346,13 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         err = 'A .*? instance already exists with id .*?'
         with self.assertRaisesRegexp(self.exceptions.IntegrityError, err):
             p2.save()
+
+    def test_moved_path(self):
+        self.post.save()
+        old_path = self.post.get_data_path()
+        self.post.slug = 'updated-post'
+        self.post.save()
+        self.assertNotEqual(old_path, self.post.get_data_path())
+        with self.assertRaises(KeyError):
+            self.workspace.index[old_path]
+        self.models.Post.get('updated-post')
