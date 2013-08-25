@@ -388,19 +388,6 @@ class GitModel(object):
         if commit:
             return workspace.commit(**commit_info)
 
-    def delete(self, commit=False, **commit_info):
-        """
-        Removes the object from its parent tree. This is a recursive operation,
-        so if the path contains a directory, it will be removed along with its
-        contents.
-        """
-        path = os.path.dirname(self.get_data_path())
-        self._meta.workspace.remove(path)
-        self._oid = None
-
-        if commit:
-            return self.workspace.commit(**commit_info)
-
     def get_id(self):
         return getattr(self, self._meta.id_attr)
 
@@ -477,3 +464,18 @@ class GitModel(object):
             blob = workspace.index[path].oid
             data = workspace.repo[blob].data
             yield cls._meta.serializer.deserialize(workspace, data, blob)
+
+    @classmethod
+    @concrete
+    def delete(cls, id, commit=False, **commit_info):
+        """
+        Removes an object from its parent tree. This is a recursive operation,
+        so if the stored object contains other objects within its directory,
+        they will be removed as well. This is not the default case, but may be
+        if the model employs a custom method for generating its data path.
+        """
+        path = os.path.dirname(cls._meta.get_data_path(id))
+        cls._meta.workspace.remove(path)
+
+        if commit:
+            return cls._meta.workspace.commit(**commit_info)

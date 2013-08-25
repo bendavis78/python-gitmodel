@@ -115,7 +115,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         post_id = self.post.get_id()
         get_author = self.models.Author.get(id)
         self.assertEqual(id, get_author.get_id())
-        self.author.delete()
+        self.models.Author.delete(id)
         with self.assertRaises(self.exceptions.DoesNotExist):
             self.models.Author.get(id)
         # make sure our index isn't borked
