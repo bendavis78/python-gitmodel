@@ -342,6 +342,10 @@ class Workspace(object):
 
         This is useful if you want to utilize the git repository using standard
         git tools.
+
+        WARNING: this function is not thread safe. It modifies the repository's
+        INDEX which is stored in the filesystem, and is not itself a git
+        object.
         """
         self.repo.index.read_tree(self.index.oid)
         if checkout:
