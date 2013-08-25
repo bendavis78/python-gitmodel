@@ -2,6 +2,10 @@
 A Python GitModel Serializer. Handles serialization of GitModel objects to/from
 native python dictionaries.
 """
+try:
+    from collections import OrderedDict
+except ImportError:
+    OrderedDict = dict
 
 
 def serialize(obj, fields):
@@ -11,10 +15,10 @@ def serialize(obj, fields):
     fields: When None, serilizes all fields. Otherwise, only the given fields
             will be returned in the serialized output.
     """
-    pyobj = {
+    pyobj = OrderedDict({
         'model': obj._meta.model_name,
         'fields': {}
-    }
+    })
     for field in obj._meta.fields:
         if fields is None or field.name in fields:
             if field.serializable:

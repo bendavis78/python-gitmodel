@@ -1,3 +1,4 @@
+import sys
 from dateutil.tz import tzlocal
 from datetime import datetime
 from time import time
@@ -10,6 +11,11 @@ except ImportError:
 import pygit2
 
 from . import path
+
+# We disable c_make_encoder for python between versions 2.7 and 2.7.3, so that
+# we can use collections.OrderedDict when encoding.
+if 0x20700f0 <= sys.hexversion < 0x20703f0:
+    json.encoder.c_make_encoder = None
 
 __all__ = ['json', 'make_signature', 'path']
 
