@@ -474,6 +474,7 @@ class GitModel(object):
         they will be removed as well. This is not the default case, but may be
         if the model employs a custom method for generating its data path.
         """
+        cls.get(id)
         path = os.path.dirname(cls._meta.get_data_path(id))
         cls._meta.workspace.remove(path)
 
