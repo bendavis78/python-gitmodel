@@ -1,0 +1,3 @@
+ABORT = 1
+SET_EMPTY = 2
+IGNORE = 3

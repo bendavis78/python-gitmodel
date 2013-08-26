@@ -363,7 +363,7 @@ class GitModel(object):
         # only allow commit-during-save if workspace doesn't have pending
         # changes.
         if commit and workspace.has_changes():
-            msg = "Repository has pending changes. Cannot auto-commit until "\
+            msg = "Repository has pending changes. Cannot save-commit until "\
                   "pending changes have been comitted."
             raise exceptions.RepositoryError(msg)
 

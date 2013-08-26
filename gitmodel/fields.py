@@ -25,6 +25,7 @@ class Field(object):
         'invalid_path': 'may only contain valid path characters',
     }
     serializable = True
+    empty_value = None
 
     def __init__(self, name=None, id=False, default=NOT_PROVIDED,
                  required=True, readonly=False, unique=False, serialize=True,
@@ -36,7 +37,7 @@ class Field(object):
         self._default = default
         self.required = required
         self.readonly = readonly
-        self.value = None
+        self.value = self.empty_value
         self.unique = unique
         self.serializeable = self.serializable and serialize
         self.autocreated = autocreated
@@ -88,7 +89,7 @@ class Field(object):
 
     def empty(self, value):
         """Returns True if value is considered an empty value for this field"""
-        return not value
+        return value is None or value == self.empty_value
 
     def __cmp__(self, other):
         # This is needed because bisect does not take a comparison function.
@@ -152,9 +153,11 @@ class CharField(Field):
     """
     A text field of arbitrary length.
     """
+    empty_value = ''
+
     def to_python(self, value):
         if value is None and not self.required:
-            return ''
+            return self.empty_value
 
         if value is None:
             return None
@@ -282,9 +285,6 @@ class IntegerField(Field):
             raise ValidationError('invalid_int', self)
         return int(value)
 
-    def empty(self, value):
-        return value is None
-
 
 class UUIDField(CharField):
     """
@@ -308,9 +308,6 @@ class FloatField(Field):
         except ValueError:
             raise ValidationError('invalid_float', self)
 
-    def empty(self, value):
-        return value is None
-
 
 class DecimalField(Field):
     default_error_messages = {
@@ -330,9 +327,6 @@ class DecimalField(Field):
         except decimal.InvalidOperation:
             raise ValidationError('invalid_decimal', self)
 
-    def empty(self, value):
-        return value is None
-
 
 class BooleanField(Field):
     def __init__(self, nullable=False, **kwargs):
@@ -343,9 +337,6 @@ class BooleanField(Field):
         if value is None and self.nullable:
             return None
         return bool(value)
-
-    def empty(self, value):
-        return value is None
 
 
 class DateField(Field):
