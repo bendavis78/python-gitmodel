@@ -8,7 +8,7 @@ except ImportError:
     OrderedDict = dict
 
 
-def serialize(obj, fields):
+def serialize(obj, fields=None):
     """
     Serialize a GitModel object to JSON.
 
