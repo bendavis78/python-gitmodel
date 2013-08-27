@@ -271,7 +271,7 @@ def concrete(func):
         # this should work for classmethods as well as instance methods
         model = self
         if not isinstance(model, type):
-            model = self.__class__
+            model = type(self)
         if not hasattr(model, '_meta'):
             msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
                    "has not been registered with a workspace")
@@ -318,7 +318,7 @@ class GitModel(object):
             # only set attrs for properties that already exist on the class
             for prop in kwargs.keys():
                 try:
-                    if isinstance(getattr(self.__class__, prop), property):
+                    if isinstance(getattr(type(self), prop), property):
                         setattr(self, prop, kwargs.pop(prop))
                 except AttributeError:
                     pass
@@ -349,12 +349,12 @@ class GitModel(object):
         if not self.oid:
             id = self.get_id()
             try:
-                self.__class__.get(id)
+                type(self).get(id)
             except exceptions.DoesNotExist:
                 pass
             else:
                 err = 'A {} instance already exists with id "{}"'.format(
-                    self.__class__.__name__, self.get_id())
+                    type(self).__name__, self.get_id())
                 raise exceptions.IntegrityError(err)
 
         serialized = self._meta.serializer.serialize(self)

@@ -45,7 +45,7 @@ class Field(object):
         # update error_messages using default_error_messages from all parents
         #NEEDS-TEST
         messages = {}
-        for c in reversed(self.__class__.__mro__):
+        for c in reversed(type(self).__mro__):
             messages.update(getattr(c, 'default_error_messages', {}))
         messages.update(error_messages or {})
         self.error_messages = messages
@@ -216,7 +216,7 @@ class BlobFieldDescriptor(object):
         return self.data
 
     def __set__(self, instance, value):
-        if isinstance(value, self.__class__):
+        if isinstance(value, type(self)):
             # re-set data to read from repo on next __get__
             self.data = None
         elif value is None:

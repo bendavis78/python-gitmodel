@@ -19,7 +19,7 @@ class Config(dict):
             return self[name]
         except KeyError:
             msg = "'{}' object has no attribute '{}'"
-            raise AttributeError(msg.format(self.__class__.__name__, name))
+            raise AttributeError(msg.format(type(self).__name__, name))
 
     def __setattr__(self, name, value):
         self[name] = value

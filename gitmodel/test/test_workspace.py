@@ -31,7 +31,7 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.assertIsNotNone(self.workspace.models.get('TestModel'))
         test_model = self.workspace.models.TestModel()
         self.assertIsInstance(test_model, self.workspace.models.TestModel)
-        self.assertIsInstance(test_model.__class__, DeclarativeMetaclass)
+        self.assertIsInstance(type(test_model), DeclarativeMetaclass)
         self.assertEqual(test_model._meta.workspace, self.workspace)
 
     def test_init_existing_branch(self):
