@@ -37,6 +37,10 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_meta(self):
         self.assertIsNotNone(self.models.Author._meta)
+        self.assertEqual(self.models.Person._meta.data_filename,
+                         "person_data.json")
+        self.assertEqual(self.models.User._meta.data_filename,
+                         "person_data.json")
 
     def test_workspace_in_model_meta(self):
         from gitmodel.workspace import Workspace
@@ -70,6 +74,12 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.save()
         path = self.author.get_data_path()
         test_path = 'author/{}/data.json'.format(self.author.get_id())
+        self.assertEqual(path, test_path)
+
+    def test_subclass_meta(self):
+        obj = self.models.PostAlternateSub(foo='bar')
+        path = obj.get_data_path()
+        test_path = 'post-altsub/bar/data.json'
         self.assertEqual(path, test_path)
 
     def test_save_oid(self):

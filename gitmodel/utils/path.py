@@ -158,12 +158,8 @@ def glob0(repo, tree, dirname, basename):
             if repo[entry.oid].type == pygit2.GIT_OBJ_TREE:
                 return [basename]
     else:
-        try:
-            if path_exists(tree, os.path.join(dirname, basename)):
-                return [basename]
-        except:
-            import ipdb; ipdb.set_trace()
-            raise
+        if path_exists(tree, os.path.join(dirname, basename)):
+            return [basename]
     return []
 
 

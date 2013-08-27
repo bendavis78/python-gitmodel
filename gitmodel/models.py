@@ -1,6 +1,5 @@
 import os
 import functools
-from copy import copy
 from bisect import bisect
 from contextlib import contextmanager
 from importlib import import_module
@@ -15,18 +14,20 @@ class GitModelOptions(object):
     An options class for ``GitModel``.
     """
     # attributes that can be overridden in a model's options ("Meta" class)
-    meta_opts = ('abstract', 'id_attr', 'get_data_path', 'data_filename')
+    meta_opts = ('abstract', 'data_filename', 'get_data_path', 'id_attr')
+
+    # reserved attributes
     reserved = ('oid',)
 
     def __init__(self, meta, workspace):
         self.meta = meta
+        self.workspace = workspace
         self.abstract = False
         self.local_fields = []
         self.local_many_to_many = []
         self.model_name = None
         self.parents = []
         self.id_attr = None
-        self.workspace = workspace
         self.data_filename = 'data.json'
         self._serializer = None
 
@@ -48,19 +49,17 @@ class GitModelOptions(object):
 
         # Apply overrides from Meta
         if self.meta:
-            meta_attrs = self.meta.__dict__.copy()
             # Ignore private attributes
-            for name in self.meta.__dict__:
-                if name.startswith('_'):
-                    del meta_attrs[name]
+            for name in dir(self.meta):
+                if name.startswith('_') or name not in self.meta_opts:
+                    continue
 
-            override_attrs = [a for a in self.meta_opts if a in meta_attrs]
-            for attr_name in override_attrs:
-                value = meta_attrs.pop(attr_name)
+                value = getattr(self.meta, name)
                 # if attr is a function, bind it to this instance
                 if not isinstance(value, type) and hasattr(value, '__call__'):
-                    value = value.__get__(self, self.__class__)
-                setattr(self, attr_name, value)
+                    value = value.__get__(self)
+                setattr(self, name, value)
+
         self._declared_meta = self.meta
         del self.meta
 
@@ -178,21 +177,23 @@ class DeclarativeMetaclass(type):
         meta = attrs.pop('Meta', None)
         base_meta = None
         if parents and hasattr(parents[0], '_meta'):
-            base_meta = copy(parents[0]._meta._declared_meta)
-            # certain meta attributes should not be inherited
-            if hasattr(base_meta, 'abstract'):
-                base_meta.abstract = False
-
-        if not meta and base_meta:
-            meta = base_meta
+            base_meta = parents[0]._meta
 
         # Add _meta to the new class. The _meta property is an instance of
         # GitModelOptions, based off of the optional declared "Meta" class
         if options_cls is None:
-            if len(parents) > 0 and hasattr(parents[0], '_meta'):
-                options_cls = parents[0]._meta.__class__
+            if base_meta:
+                options_cls = type(base_meta)
             else:
                 options_cls = GitModelOptions
+
+        if meta is None:
+            # if meta is not declared, use the closest parent's meta
+            meta = next((p._meta._declared_meta for p in parents if
+                        hasattr(p, '_meta') and p._meta._declared_meta), None)
+            # don't inherit the abstract property
+            if hasattr(meta, 'abstract'):
+                meta.abstract = False
 
         opts = options_cls(meta, workspace)
 
@@ -276,7 +277,7 @@ def concrete(func):
                    "has not been registered with a workspace")
             raise exceptions.GitModelError(msg.format(model, func))
         if model._meta.abstract:
-            msg = "Cannot call {1.__name__}() abstract model {0.__name__} "
+            msg = "Cannot call {1.__name__}() on abstract model {0.__name__} "
             raise exceptions.GitModelError(msg.format(model, func))
         return func(self, *args, **kwargs)
     return inner

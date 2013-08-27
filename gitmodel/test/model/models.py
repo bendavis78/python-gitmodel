@@ -21,6 +21,9 @@ class Person(GitModel):
     last_name = fields.CharField()
     email = fields.EmailField()
 
+    class Meta:
+        data_filename = 'person_data.json'
+
 
 class User(Person):
     password = fields.CharField()
@@ -29,7 +32,7 @@ class User(Person):
 
 def get_path_custom(opts, object_id):
     import os
-    # kinda silly, but good for testing that the opts object works
+    # kinda silly, but good for testing that the override works
     model_name = opts.model_name.lower()
     model_name = model_name.replace('alternate', '-alt')
     return os.path.join(model_name, unicode(object_id), 'data.json')
@@ -42,6 +45,13 @@ class PostAlternate(GitModel):
     class Meta:
         id_attr = 'slug'
         get_data_path = get_path_custom
+
+
+class PostAlternateSub(PostAlternate):
+    foo = fields.CharField()
+
+    class Meta(PostAlternate.Meta):
+        id_attr = 'foo'
 
 
 class AbstractBase(GitModel):
