@@ -36,3 +36,9 @@ class User(Person):
     password = fields.CharField()
     last_login = fields.DateTimeField(required=False)
     last_read = fields.RelatedField(Post, required=False)
+
+
+class GitObjectTestModel(models.GitModel):
+    blob = fields.GitObjectField()
+    commit = fields.GitObjectField()
+    tree = fields.GitObjectField()

@@ -6,6 +6,8 @@ import uuid
 from datetime import datetime, date, time
 from StringIO import StringIO
 
+import pygit2
+
 from gitmodel.utils import isodate, json
 from gitmodel.exceptions import ValidationError, FieldError
 
@@ -463,6 +465,55 @@ class RelatedField(Field):
         if hasattr(cls, '_meta'):
             self.workspace = cls._meta.workspace
         setattr(cls, name, RelatedFieldDescriptor(self))
+
+
+class GitObjectFieldDescriptor(object):
+    def __init__(self, field):
+        self.field = field
+        self.oid = None
+
+    def __get__(self, instance, instance_type=None):
+        if instance is None:
+            return self
+        value = instance.__dict__[self.field.name]
+        if value is None or isinstance(value, pygit2.Object):
+            return value
+        return instance._meta.workspace.repo[value]
+
+    def __set__(self, instance, value):
+        if isinstance(value, pygit2.Oid):
+            value = value.hex
+        instance.__dict__[self.field.name] = value
+
+
+class GitObjectField(CharField):
+    """
+    Acts as a reference to a git object. Returns the actual object when
+    accessed as a property.
+    """
+    default_error_messages = {
+        'invalid_oid': "must be a vlid OID"
+    }
+    repo = None
+
+    def to_python(self, value):
+        if not isinstance(value, (basestring, pygit2.Oid)):
+            raise ValidationError('invalid_oid', self)
+        if isinstance(value, pygit2.Oid):
+            return value.hex
+        return value
+
+    def clean(self, value, model_instance):
+        raw_value = model_instance.__dict__[self.name]
+        return super(GitObjectField, self).clean(raw_value, model_instance)
+
+    def serialize(self, obj):
+        value = obj.__dict__[self.name]
+        return self.to_python(value)
+
+    def contribute_to_class(self, cls, name):
+        super(GitObjectField, self).contribute_to_class(cls, name)
+        setattr(cls, name, GitObjectFieldDescriptor(self))
 
 
 class JSONField(CharField):

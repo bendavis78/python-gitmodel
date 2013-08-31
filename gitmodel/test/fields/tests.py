@@ -1,4 +1,7 @@
 import os
+
+import pygit2
+
 from gitmodel.test import GitModelTestCase
 
 
@@ -260,3 +263,25 @@ class JSONFieldTest(TestInstancesMixin, GitModelTestCase):
         post = self.models.Post.get(self.post.slug)
         self.assertIsInstance(post.metadata, dict)
         self.assertDictEqual(post.metadata, metadata)
+
+
+class GitObjectFieldTest(TestInstancesMixin, GitModelTestCase):
+    def test_gitobject_field(self):
+        repo = self.workspace.repo
+        test_commit = self.person.save(commit=True, message='Test Commit')
+        test_blob = repo[self.workspace.index[self.person.get_data_path()].oid]
+        test_tree = repo[test_commit].tree
+
+        obj = self.models.GitObjectTestModel(
+            blob=test_blob.oid,
+            commit=test_commit,
+            tree=test_tree.oid
+        )
+        obj.save()
+
+        self.assertIsInstance(obj.commit, pygit2.Commit)
+        self.assertEqual(obj.commit.oid, repo[test_commit].oid)
+        self.assertIsInstance(obj.blob, pygit2.Blob)
+        self.assertEqual(obj.blob.oid, test_blob.oid)
+        self.assertIsInstance(obj.tree, pygit2.Tree)
+        self.assertEqual(obj.tree.oid, test_tree.oid)
