@@ -78,15 +78,6 @@ class Field(object):
             return self._default
         return
 
-    def _get_val_from_obj(self, obj):
-        if obj is not None:
-            return getattr(obj, self.name)
-        else:
-            return self.default
-
-    def value_to_string(self, obj):
-        return unicode(self._get_val_from_obj(obj))
-
     def empty(self, value):
         """Returns True if value is considered an empty value for this field"""
         return value is None or value == self.empty_value
@@ -361,13 +352,6 @@ class DateField(Field):
             except isodate.InvalidDate:
                 raise ValidationError('invalid', self)
 
-    def value_to_string(self, obj):
-        val = self._get_val_from_obj(obj)
-        if val is None:
-            return ''
-        else:
-            return val.isoformat().split('T')[0]
-
 
 class DateTimeField(Field):
     default_error_messages = {
@@ -395,13 +379,6 @@ class DateTimeField(Field):
             except isodate.InvalidDate:
                 raise ValidationError('invalid', self)
 
-    def value_to_string(self, obj):
-        val = self._get_val_from_obj(obj)
-        if val is None:
-            return ''
-        else:
-            return val.isoformat().replace('T', ' ')
-
 
 class TimeField(Field):
     default_error_messages = {
@@ -422,13 +399,6 @@ class TimeField(Field):
                 raise ValidationError('invalid_format', self)
             except isodate.InvalidDate:
                 raise ValidationError('invalid', self)
-
-    def value_to_string(self, obj):
-        val = self._get_val_from_obj(obj)
-        if val is None:
-            return ''
-        else:
-            return val.isoformat()
 
 
 class RelatedFieldDescriptor(object):
@@ -483,12 +453,6 @@ class RelatedField(Field):
         if isinstance(value, models.GitModel):
             return value.get_id()
         return value
-
-    def _get_val_from_obj(self, obj):
-        if obj is not None:
-            return getattr(obj, self.name).get_id()
-        else:
-            return self.default
 
     def serialize(self, obj):
         value = obj.__dict__[self.name]
