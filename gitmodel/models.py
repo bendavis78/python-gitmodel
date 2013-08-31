@@ -436,19 +436,32 @@ class GitModel(object):
 
     @classmethod
     @concrete
-    def get(cls, id):
+    def get(cls, id, treeish=None):
         """
         Gets the object associated with the given id
         """
-        path = cls._meta.get_data_path(id)
         workspace = cls._meta.workspace
+        path = cls._meta.get_data_path(id)
+
+        if treeish:
+            tree = utils.treeish_to_tree(workspace.repo, treeish)
+        else:
+            tree = workspace.index
+
+        msg = "{} with id {}{} does not exist."
+        name = cls._meta.model_name
+        revname = treeish and '@{}'.format(treeish) or ''
+        msg = msg.format(name, id, revname)
+
+        if not tree:
+            raise exceptions.DoesNotExist(msg)
+
         try:
-            blob = workspace.index[path].oid
+            blob = tree[path].oid
         except KeyError:
-            name = cls._meta.model_name
-            msg = "{} with id {} does not exist.".format(name, id)
             raise exceptions.DoesNotExist(msg)
         data = workspace.repo[blob].data
+
         return cls._meta.serializer.deserialize(workspace, data, blob)
 
     @classmethod

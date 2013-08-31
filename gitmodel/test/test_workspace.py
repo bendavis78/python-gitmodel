@@ -79,8 +79,7 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.assertEqual(test_content, 'Test')
 
     def test_set_nonexistant_branch(self):
-        with self.assertRaisesRegexp(exceptions.RepositoryError,
-                                     r'Reference not found'):
+        with self.assertRaises(KeyError):
             self.workspace.set_branch('foobar')
 
     def test_update_index_with_pending_changes(self):

@@ -145,11 +145,7 @@ class Workspace(object):
         """
         if not start_point:
             start_point = self.head
-        try:
-            start_point_ref = self.repo.lookup_reference(start_point)
-        except KeyError:
-            msg = "Reference not found: {}".format(start_point)
-            raise exceptions.RepositoryError(msg)
+        start_point_ref = self.repo.lookup_reference(start_point)
 
         if start_point_ref.type != pygit2.GIT_OBJ_COMMIT:
             raise ValueError('Given reference must point to a commit')
@@ -157,39 +153,42 @@ class Workspace(object):
         branch_ref = 'refs/heads/{}'.format(name)
         self.repo.create_reference(branch_ref, start_point_ref.target)
 
+    def get_branch(self, ref_name):
+        return Branch(self.repo, ref_name)
+
     def set_branch(self, name):
         """
         Sets the current head ref to the given branch name
         """
+        # make sure the branch is a valid head ref
         ref = 'refs/heads/{}'.format(name)
-        try:
-            self.repo.lookup_reference(ref)
-        except KeyError:
-            msg = "Reference not found: {}".format(ref)
-            raise exceptions.RepositoryError(msg)
+        self.repo.lookup_reference(ref)
         self.update_index(ref)
 
     @property
     def branch(self):
-        # TODO: use pygit2's new Branch class
         try:
-            return Branch(self.repo, self.head)
-        except KeyError:
+            return self.get_branch(self.head)
+        except exceptions.RepositoryError:
             return None
 
-    def update_index(self, ref=None):
-        """Sets the index to the current branch or to the given ref"""
+    def update_index(self, treeish):
+        """Sets the index to the current branch or to the given treeish"""
         # Don't change the index if there are pending changes.
         if self.index and self.has_changes():
             msg = "Cannot checkout a different branch with pending changes"
             raise exceptions.RepositoryError(msg)
-        try:
-            self.repo.lookup_reference(ref)
-        except KeyError:
-            msg = "Reference not found: {}".format(ref)
-            raise exceptions.RepositoryError(msg)
-        self.head = ref
-        self.index = self.branch.tree
+
+        tree = utils.treeish_to_tree(self.repo, treeish)
+
+        if treeish.startswith('refs/heads'):
+            # if treeish is a head ref, update head
+            self.head = treeish
+        else:
+            # otherwise, we're in "detached head" mode
+            self.head = None
+
+        self.index = tree
 
     def add(self, path, entries):
         """
@@ -343,13 +342,12 @@ class Workspace(object):
         This is useful if you want to utilize the git repository using standard
         git tools.
 
-        WARNING: this function is not thread safe. It modifies the repository's
-        INDEX which is stored in the filesystem, and is not itself a git
-        object.
+        This function acquires a workspace-level INDEX lock.
         """
-        self.repo.index.read_tree(self.index.oid)
-        if checkout:
-            self.repo.checkout()
+        with self.lock('INDEX'):
+            self.repo.index.read_tree(self.index.oid)
+            if checkout:
+                self.repo.checkout()
 
 
 class Branch(object):
@@ -357,8 +355,15 @@ class Branch(object):
     A representation of a git branch that provides quick access to the ref,
     commit, and commit tree.
     """
-    def __init__(self, repo, ref):
-        self.ref = repo.lookup_reference(ref)
+    def __init__(self, repo, ref_name):
+        try:
+            self.ref = repo.lookup_reference(ref_name)
+        except KeyError:
+            msg = "Reference not found: {}".format(ref_name)
+            raise exceptions.RepositoryError(msg)
         self.commit = self.ref.get_object()
         self.oid = self.commit.oid
         self.tree = self.commit.tree
+
+    def __getitem__(self, path):
+        return self.tree[path]

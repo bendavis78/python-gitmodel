@@ -42,3 +42,16 @@ def make_signature(name, email, timestamp=None, offset=None,
         offset = default_offset
 
     return pygit2.Signature(name, email, timestamp, offset)
+
+
+def treeish_to_tree(repo, obj):
+    try:
+        obj = repo.revparse_single(obj)
+    except:
+        pass
+
+    if isinstance(obj, pygit2.Commit):
+        return obj.tree
+    elif isinstance(obj, pygit2.Reference):
+        oid = obj.resolve().target
+        return repo[oid]

@@ -11,15 +11,15 @@ from gitmodel.exceptions import ValidationError
 from gitmodel.serializers import ABORT, SET_EMPTY, IGNORE
 
 
-def serialize(obj, fields=None, onerror=ABORT):
+def serialize(obj, fields=None, invalid=ABORT):
     """
     Serialize a GitModel object to JSON.
 
     fields:  When None, serilizes all fields. Otherwise, only the given fields
              will be returned in the serialized output.
 
-    onerror: If a field cannot be coerced into its respective data type, a
-             ValidationError will be raised. When onerror is ABORT, this
+    invalid: If a field cannot be coerced into its respective data type, a
+             ValidationError will be raised. When invalid is ABORT, this
              exception is re-raised. SET_EMPTY causes the value to be set to an
              empty value. IGNORE simply uses the current value. Note that
              serialization may still fail with IGNORE if a value is not
@@ -35,9 +35,9 @@ def serialize(obj, fields=None, onerror=ABORT):
                 try:
                     value = field.serialize(obj)
                 except ValidationError:
-                    if onerror == SET_EMPTY:
+                    if invalid == SET_EMPTY:
                         value = field.empty_value
-                    elif onerror == IGNORE:
+                    elif invalid == IGNORE:
                         value = getattr(obj, field.name)
                     else:
                         raise
@@ -46,7 +46,7 @@ def serialize(obj, fields=None, onerror=ABORT):
     return pyobj
 
 
-def deserialize(workspace, data, oid, onerror=IGNORE):
+def deserialize(workspace, data, oid, invalid=IGNORE):
     """
     Load a python dict as a GitModel instance.
 
@@ -54,10 +54,10 @@ def deserialize(workspace, data, oid, onerror=IGNORE):
 
     data: a valid JSON string
 
-    onerror: If a field cannot be coerced into its respective data type, a
-             ValidationError will be raised. When onerror is ABORT, this
-             exception is re-raised. SET_EMPTY causes the value to be set to an
-             empty value. IGNORE simply uses the raw value.
+    invalid: If a field cannot be coerced into its respective data type, a
+             ``ValidationError`` will be raised. When ``invalid`` is ``ABORT``,
+             this exception is re-raised. ``SET_EMPTY`` causes the value to be
+             set to an empty value. ``IGNORE`` simply uses the raw value.
     """
     attrs = {'oid': oid}
     model = workspace.models[data['model']]
@@ -69,9 +69,9 @@ def deserialize(workspace, data, oid, onerror=IGNORE):
         try:
             value = field.deserialize(data, value)
         except ValidationError:
-            if onerror == SET_EMPTY:
+            if invalid == SET_EMPTY:
                 value = field.empty_value
-            elif onerror == ABORT:
+            elif invalid == ABORT:
                 raise
         attrs[field.name] = value
     return model(**attrs)
