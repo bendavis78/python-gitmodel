@@ -285,3 +285,29 @@ class GitObjectFieldTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(obj.blob.oid, test_blob.oid)
         self.assertIsInstance(obj.tree, pygit2.Tree)
         self.assertEqual(obj.tree.oid, test_tree.oid)
+
+        err = '"commit" must be a valid git OID'
+        with self.assertRaisesRegexp(self.exceptions.ValidationError, err):
+            obj.commit = 'foo'
+            obj.save()
+
+        err = '"commit" must point to a Commit'
+        with self.assertRaisesRegexp(self.exceptions.ValidationError, err):
+            obj.commit = test_tree.oid
+            obj.save()
+
+
+class EmailFieldTest(TestInstancesMixin, GitModelTestCase):
+    def test_email_field(self):
+        invalid = '"email" must be a valid e-mail address'
+
+        with self.assertRaisesRegexp(self.exceptions.ValidationError, invalid):
+            self.author.email = 'jdoe[at]example.com'
+            self.author.save()
+
+        self.author.email = 'jdoe@example.com'
+        self.author.save()
+        id = self.author.id
+
+        author = self.models.Author.get(id)
+        self.assertEqual(author.email, 'jdoe@example.com')

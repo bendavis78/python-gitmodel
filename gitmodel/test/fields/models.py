@@ -1,3 +1,5 @@
+import pygit2
+
 from gitmodel import fields
 from gitmodel import models
 
@@ -19,7 +21,7 @@ class Person(models.GitModel):
 class Author(models.GitModel):
     first_name = fields.CharField()
     last_name = fields.CharField()
-    email = fields.CharField()
+    email = fields.EmailField()
     language = fields.CharField(default='en-US')
 
 
@@ -40,5 +42,5 @@ class User(Person):
 
 class GitObjectTestModel(models.GitModel):
     blob = fields.GitObjectField()
-    commit = fields.GitObjectField()
+    commit = fields.GitObjectField(type=pygit2.Commit)
     tree = fields.GitObjectField()

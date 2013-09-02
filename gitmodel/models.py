@@ -416,7 +416,7 @@ class GitModel(object):
         Validates all fields on the model.
         """
         for field in self._meta.fields:
-            raw_value = getattr(self, field.name)
+            raw_value = field.get_raw_value(self)
             setattr(self, field.name, field.clean(raw_value, self))
 
     def full_clean(self):

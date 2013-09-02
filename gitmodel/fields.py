@@ -95,6 +95,13 @@ class Field(object):
         """
         return value
 
+    def get_raw_value(self, model_instance):
+        """
+        Used during the model's clean_fields() method. There is usually no
+        need to override this unless the field is a descriptor.
+        """
+        return getattr(model_instance, self.name)
+
     def validate(self, value, model_instance):
         """
         Validates a coerced value (ie, passed through to_python) and throws a
@@ -130,8 +137,10 @@ class Field(object):
         """
         return self.to_python(value)
 
-    def get_error_message(self, error_code, default=''):
+    def get_error_message(self, error_code, default='', **kwargs):
         msg = self.error_messages.get(error_code, default)
+        kwargs['field'] = self
+        msg = msg.format(**kwargs)
         return '"{name}" {err}'.format(name=self.name, err=msg)
 
     def post_save(self, value, model_instance, commit=False):
@@ -488,13 +497,25 @@ class GitObjectFieldDescriptor(object):
 
 class GitObjectField(CharField):
     """
-    Acts as a reference to a git object. Returns the actual object when
-    accessed as a property.
+    Acts as a reference to a git object. This field stores the OID of the
+    object. Returns the actual object when accessed as a property.
     """
     default_error_messages = {
-        'invalid_oid': "must be a vlid OID"
+        'invalid_oid': "must be a valid git OID",
+        'invalid_type': "must point to a {type}",
     }
-    repo = None
+
+    def __init__(self, **kwargs):
+        """
+        If ``type`` is given, restricts the field to a specific type, and will
+        raise a ValidationError during .validate() if an invalid type is given.
+
+        ``type`` can be a valid pygit2 git object class, such as pygit2.Blob,
+        pygit2.Commit, or pygit2.Tree. Any object type that can be resolved
+        from a git oid is valid.
+        """
+        self.type = kwargs.pop('type', None)
+        super(GitObjectField, self).__init__(**kwargs)
 
     def to_python(self, value):
         if not isinstance(value, (basestring, pygit2.Oid)):
@@ -514,6 +535,20 @@ class GitObjectField(CharField):
     def contribute_to_class(self, cls, name):
         super(GitObjectField, self).contribute_to_class(cls, name)
         setattr(cls, name, GitObjectFieldDescriptor(self))
+
+    def get_raw_value(self, model_instance):
+        return model_instance.__dict__[self.name]
+
+    def validate(self, value, model_instance):
+        super(GitObjectField, self).validate(value, model_instance)
+        oid = model_instance.__dict__[self.name]
+        try:
+            obj = model_instance._meta.workspace.repo[oid]
+        except (ValueError, KeyError):
+            raise ValidationError('invalid_oid', self)
+        if self.type and not isinstance(obj, self.type):
+            raise ValidationError('invalid_type', self,
+                                  type=self.type.__name__)
 
 
 class JSONField(CharField):

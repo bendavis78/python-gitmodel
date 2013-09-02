@@ -46,15 +46,17 @@ class ValidationError(GitModelError):
     """
     Raised when an invalid value is encountered
     """
-    def __init__(self, msg_or_code, field=None):
+    def __init__(self, msg_or_code, field=None, **kwargs):
         self.field = field
         self.msg_or_code = msg_or_code
         if self.field:
             msg = self.field.get_error_message(msg_or_code,
-                                               default=msg_or_code)
+                                               default=msg_or_code,
+                                               **kwargs)
         else:
             msg = msg_or_code
         super(ValidationError, self).__init__(msg)
+
 
 class IntegrityError(GitModelError):
     """
