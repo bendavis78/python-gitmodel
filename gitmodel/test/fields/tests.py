@@ -311,3 +311,25 @@ class EmailFieldTest(TestInstancesMixin, GitModelTestCase):
 
         author = self.models.Author.get(id)
         self.assertEqual(author.email, 'jdoe@example.com')
+
+
+class URLFieldTest(TestInstancesMixin, GitModelTestCase):
+    def test_url_field(self):
+        invalid = '"url" must be a valid URL'
+        invalid_scheme = '"url" scheme must be one of http, https'
+
+        with self.assertRaisesRegexp(self.exceptions.ValidationError, invalid):
+            self.author.url = 'http//example.com/foo'
+            self.author.save()
+
+        with self.assertRaisesRegexp(self.exceptions.ValidationError,
+                                     invalid_scheme):
+            self.author.url = 'ftp://example.com/foo'
+            self.author.save()
+
+        self.author.url = 'http://example.com/foo'
+        self.author.save()
+        id = self.author.id
+
+        author = self.models.Author.get(id)
+        self.assertEqual(author.url, 'http://example.com/foo')

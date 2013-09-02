@@ -5,6 +5,7 @@ import re
 import uuid
 from datetime import datetime, date, time
 from StringIO import StringIO
+from urlparse import urlparse
 
 import pygit2
 
@@ -199,6 +200,33 @@ class EmailField(CharField):
 
         if not email_re.match(value):
             raise ValidationError('invalid_email', self)
+
+
+class URLField(CharField):
+    default_error_messages = {
+        'invalid_url': 'must be a valid URL',
+        'invalid_scheme': 'scheme must be one of {schemes}'
+    }
+
+    def __init__(self, **kwargs):
+        """
+        ``schemes`` is a list of URL schemes to which this field should be
+        restricted. Raises validation error if url scheme is not in this list.
+        Otherwise, any scheme is allowed.
+        """
+        self.schemes = kwargs.pop('schemes', None)
+        super(URLField, self).__init__(self, **kwargs)
+
+    def validate(self, value, model_instance):
+        super(URLField, self).validate(value, model_instance)
+        if self.empty(value):
+            return
+        parsed = urlparse(value)
+        if not all((parsed.scheme, parsed.hostname)):
+            raise ValidationError('invalid_url', self)
+        if self.schemes and parsed.scheme.lower() not in self.schemes:
+            schemes = ', '.join(self.schemes)
+            raise ValidationError('invalid_scheme', self, schemes=schemes)
 
 
 class BlobFieldDescriptor(object):
