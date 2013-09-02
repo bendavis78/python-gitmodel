@@ -474,10 +474,13 @@ class GitModel(object):
         workspace = cls._meta.workspace
         repo = workspace.repo
 
-        for path in utils.path.glob(repo, workspace.index, pattern):
-            blob = workspace.index[path].oid
-            data = workspace.repo[blob].data
-            yield cls._meta.serializer.deserialize(workspace, data, blob)
+        def all():
+            for path in utils.path.glob(repo, workspace.index, pattern):
+                blob = workspace.index[path].oid
+                data = workspace.repo[blob].data
+                yield cls._meta.serializer.deserialize(workspace, data, blob)
+
+        return ModelSet(all())
 
     @classmethod
     @concrete
@@ -494,3 +497,26 @@ class GitModel(object):
 
         if commit:
             return cls._meta.workspace.commit(**commit_info)
+
+
+class ModelSet(object):
+    """
+    A read-only container type initailized with a generator
+    """
+    def __init__(self, gen):
+        self._gen = gen
+
+    def __iter__(self):
+        return self._gen
+
+    def __getitem__(self, key):
+        try:
+            return next(o for i, o in enumerate(self._gen) if i == key)
+        except StopIteration:
+            raise IndexError("Index out of range")
+
+    def __next__(self):
+        return next(self._gen)
+
+    def __contains__(self, item):
+        return next(o for o in self._gen if o == item)
