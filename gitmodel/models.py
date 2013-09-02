@@ -1,8 +1,9 @@
 import os
-import functools
 from bisect import bisect
 from contextlib import contextmanager
 from importlib import import_module
+
+import decorator
 
 from gitmodel import exceptions
 from gitmodel import fields
@@ -262,25 +263,23 @@ class DeclarativeMetaclass(type):
             setattr(cls, name, value)
 
 
-def concrete(func):
+@decorator.decorator
+def concrete(func, self, *args, **kwargs):
     """
     Causes a model's method to require a non-abstract workspace-bound model.
     """
-    @functools.wraps(func)
-    def inner(self, *args, **kwargs):
-        # this should work for classmethods as well as instance methods
-        model = self
-        if not isinstance(model, type):
-            model = type(self)
-        if not hasattr(model, '_meta'):
-            msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
-                   "has not been registered with a workspace")
-            raise exceptions.GitModelError(msg.format(model, func))
-        if model._meta.abstract:
-            msg = "Cannot call {1.__name__}() on abstract model {0.__name__} "
-            raise exceptions.GitModelError(msg.format(model, func))
-        return func(self, *args, **kwargs)
-    return inner
+    # this should work for classmethods as well as instance methods
+    model = self
+    if not isinstance(model, type):
+        model = type(self)
+    if not hasattr(model, '_meta'):
+        msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
+               "has not been registered with a workspace")
+        raise exceptions.GitModelError(msg.format(model, func))
+    if model._meta.abstract:
+        msg = "Cannot call {1.__name__}() on abstract model {0.__name__} "
+        raise exceptions.GitModelError(msg.format(model, func))
+    return func(self, *args, **kwargs)
 
 
 class GitModel(object):

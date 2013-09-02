@@ -313,7 +313,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_abstract(self):
         # try to do stuff on an abstract model
-        with self.assertRaises(self.exceptions.GitModelError):
+        with self.assertRaises(TypeError):
             self.models.AbstractBase.get()
 
         with self.assertRaises(self.exceptions.GitModelError):
