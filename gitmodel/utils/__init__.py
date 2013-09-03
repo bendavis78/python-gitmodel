@@ -1,12 +1,8 @@
 import sys
+import json
 from dateutil.tz import tzlocal
 from datetime import datetime
 from time import time
-
-try:
-    import cjson as json
-except ImportError:
-    import json
 
 import pygit2
 

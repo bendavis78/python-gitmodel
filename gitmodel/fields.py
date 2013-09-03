@@ -352,6 +352,8 @@ class DecimalField(Field):
     def to_python(self, value):
         if value is None:
             return None
+        if type(value) == float:
+            value = str(value)
         try:
             return decimal.Decimal(value)
         except decimal.InvalidOperation:
