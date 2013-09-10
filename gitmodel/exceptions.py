@@ -64,3 +64,9 @@ class IntegrityError(GitModelError):
     """
     pass
 
+
+class ModelNotFound(Exception):
+    """
+    Raised during deserialization if the model class no longer exists
+    """
+    pass

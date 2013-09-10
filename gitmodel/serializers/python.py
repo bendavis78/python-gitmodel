@@ -7,7 +7,7 @@ try:
 except ImportError:
     OrderedDict = dict
 
-from gitmodel.exceptions import ValidationError
+from gitmodel.exceptions import ValidationError, ModelNotFound
 from gitmodel.serializers import ABORT, SET_EMPTY, IGNORE
 
 
@@ -60,7 +60,10 @@ def deserialize(workspace, data, oid, invalid=IGNORE):
              set to an empty value. ``IGNORE`` simply uses the raw value.
     """
     attrs = {'oid': oid}
-    model = workspace.models[data['model']]
+    try:
+        model = workspace.models[data['model']]
+    except KeyError:
+        raise ModelNotFound(data['model'])
     for field in model._meta.fields:
         value = data['fields'].get(field.name)
         # field.deserialize() calls field.to_python(). If a serialized value

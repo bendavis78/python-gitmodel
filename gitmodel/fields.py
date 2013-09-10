@@ -520,7 +520,9 @@ class GitObjectFieldDescriptor(object):
         return instance._meta.workspace.repo[value]
 
     def __set__(self, instance, value):
-        if isinstance(value, pygit2.Oid):
+        if isinstance(value, pygit2.Object):
+            value = value.oid.hex
+        elif isinstance(value, pygit2.Oid):
             value = value.hex
         instance.__dict__[self.field.name] = value
 
@@ -531,7 +533,7 @@ class GitObjectField(CharField):
     object. Returns the actual object when accessed as a property.
     """
     default_error_messages = {
-        'invalid_oid': "must be a valid git OID",
+        'invalid_oid': "must be a valid git OID or pygit2 Object",
         'invalid_type': "must point to a {type}",
     }
 
@@ -548,8 +550,8 @@ class GitObjectField(CharField):
         super(GitObjectField, self).__init__(**kwargs)
 
     def to_python(self, value):
-        if not isinstance(value, (basestring, pygit2.Oid)):
-            raise ValidationError('invalid_oid', self)
+        if not isinstance(value, (basestring, pygit2.Oid, pygit2.Object)):
+            raise ValidationError('invalid_object', self)
         if isinstance(value, pygit2.Oid):
             return value.hex
         return value

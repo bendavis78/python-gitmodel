@@ -266,9 +266,9 @@ class DeclarativeMetaclass(type):
 @decorator.decorator
 def concrete(func, self, *args, **kwargs):
     """
-    Causes a model's method to require a non-abstract workspace-bound model.
+    Causes a model's method to require a non-abstract, workspace-bound model.
     """
-    # this should work for classmethods as well as instance methods
+    # decorator should work for classmethods as well as instance methods
     model = self
     if not isinstance(model, type):
         model = type(self)
