@@ -322,7 +322,7 @@ class Workspace(object):
 
         # The blob itself is not important, just the fact that the ref exists
         emptyblob = self.create_blob('')
-        ref = self.create_reference('refs/locks/{}'.format(id), emptyblob)
+        ref = self.repo.create_reference('refs/locks/{}'.format(id), emptyblob)
         yield
         ref.delete()
 
