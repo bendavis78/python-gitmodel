@@ -129,9 +129,7 @@ decide the best way to optimize it.
 
 Status
 ------
-This project is under heavy development, and the API will likely change
-drastically before a 1.0 release. Currently only basic model creation
-and saving instances will work. 
+This project is no longer under active development.
 
 TODO
 ----
