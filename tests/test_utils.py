@@ -1,10 +1,18 @@
+from time import time
+from datetime import datetime
+
 import pygit2
-from gitmodel.test import GitModelTestCase
+
+from dateutil.tz import tzlocal
+
+from gitmodel import utils
+
+from . import GitModelTestCase
 
 
 class GitModelUtilsTest(GitModelTestCase):
     def setUp(self):
-        super(GitModelUtilsTest, self).setUp()
+        GitModelTestCase.setUp(self)
         self.repo = self.workspace.repo
 
     def _get_test_tree(self):
@@ -37,8 +45,6 @@ class GitModelUtilsTest(GitModelTestCase):
         return root
 
     def test_describe_tree(self):
-        from gitmodel import utils
-
         root = self._get_test_tree()
         desc = utils.path.describe_tree(self.repo, root)
         test_desc = (
@@ -52,10 +58,6 @@ class GitModelUtilsTest(GitModelTestCase):
         self.assertMultiLineEqual(desc, test_desc)
 
     def test_make_signature(self):
-        from gitmodel import utils
-        from datetime import datetime
-        from time import time
-        from dateutil.tz import tzlocal
 
         # Get local offset
         timestamp = time()
@@ -88,9 +90,6 @@ class GitModelUtilsTest(GitModelTestCase):
         self.assertAlmostEqual(test_sig.time, timestamp, delta=10)
 
     def test_build_path_empty(self):
-        # Test building a path from an empty tree
-        from gitmodel import utils
-
         path = "/foo/bar/baz/"  # path sep should be stripped
         # create dummy entry
         blob_oid = self.repo.create_blob("TEST CONTENT")
@@ -101,9 +100,6 @@ class GitModelUtilsTest(GitModelTestCase):
         self.assertMultiLineEqual(desc, test_desc)
 
     def test_build_path_update(self):
-        # Test building a path from an existing tree, updating the path
-        from gitmodel import utils
-
         path = "/foo/bar/baz/"  # path sep should be stripped
         # build initial tree
         blob_oid = self.repo.create_blob("TEST CONTENT")
@@ -119,13 +115,11 @@ class GitModelUtilsTest(GitModelTestCase):
         new_content = self.repo[entry.oid].data
         desc = utils.path.describe_tree(self.repo, tree2)
         test_desc = "foo/\n  bar/\n    baz/\n      qux.txt"
-        self.assertEqual(new_content, "UPDATED CONTENT")
+        self.assertEqual(new_content, b"UPDATED CONTENT")
         self.assertMultiLineEqual(desc, test_desc)
 
     def test_glob(self):
-        from gitmodel import utils
-
         tree = self._get_test_tree()
         files = utils.path.glob(self.repo, tree, "foo/*/*.txt")
         test = ["foo/bar/test.txt", "foo/bar/test3.txt"]
-        self.assertEqual(list(files), test)
+        self.assertEqual(test, list(files))

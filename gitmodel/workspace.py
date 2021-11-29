@@ -12,7 +12,7 @@ from gitmodel import models
 from gitmodel import utils
 
 
-class Workspace(object):
+class Workspace:
     """
     A workspace acts as an encapsulation within which any model work is done.
     It is analogous to a git working directory. It also acts as a "porcelain"
@@ -25,7 +25,7 @@ class Workspace(object):
     Passing initial_branch will set the default head for the workspace.
     """
 
-    def __init__(self, repo_path, initial_branch="refs/heads/master"):
+    def __init__(self, repo_path, initial_branch="refs/heads/main"):
         self.config = conf.Config()
 
         # set up a model registry
@@ -125,7 +125,7 @@ class Workspace(object):
         """
         Register all models declared within a given python module
         """
-        if isinstance(path_or_module, basestring):
+        if isinstance(path_or_module, str):
             mod = import_module(path_or_module)
         else:
             mod = path_or_module
@@ -359,7 +359,7 @@ class Workspace(object):
                 self.repo.checkout()
 
 
-class Branch(object):
+class Branch:
     """
     A representation of a git branch that provides quick access to the ref,
     commit, and commit tree.
@@ -371,7 +371,7 @@ class Branch(object):
         except KeyError:
             msg = "Reference not found: {}".format(ref_name)
             raise exceptions.RepositoryError(msg)
-        self.commit = self.ref.get_object()
+        self.commit = self.ref.peel()
         self.oid = self.commit.oid
         self.tree = self.commit.tree
 

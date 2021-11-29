@@ -5,7 +5,7 @@ GitModel objects.
 
 import datetime
 import decimal
-from StringIO import StringIO
+from io import StringIO
 
 from gitmodel.utils import json
 from gitmodel.serializers import python

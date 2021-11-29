@@ -44,7 +44,7 @@ def make_signature(name, email, timestamp=None, offset=None, default_offset=None
     elif offset is None:
         offset = default_offset
 
-    return pygit2.Signature(name, email, timestamp, offset)
+    return pygit2.Signature(name, email, int(round(timestamp)), int(round(offset)))
 
 
 def treeish_to_tree(repo, obj):

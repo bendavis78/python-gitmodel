@@ -1,15 +1,16 @@
 import os
 import json
-from gitmodel.test import GitModelTestCase
 
+from . import GitModelTestCase
+from .model import models
+from .model.models import Author
 
-class TestInstancesMixin(object):
+from gitmodel import exceptions
+from gitmodel import fields
+
+class TestInstancesMixin:
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
-
-        from gitmodel.test.model import models
-        from gitmodel import exceptions
-        from gitmodel import fields
 
         self.exceptions = exceptions
         self.fields = fields
@@ -99,7 +100,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
         # verify data
         data = json.loads(blob.data)
-        self.assertItemsEqual(
+        self.assertCountEqual(
             data,
             {
                 "model": "Author",
@@ -146,7 +147,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
         # verify data
         data = json.loads(blob.data)
-        self.assertItemsEqual(
+        self.assertCountEqual(
             data,
             {
                 "model": "Author",
@@ -167,7 +168,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.assertTrue(self.workspace.has_changes())
         blob_hash = self.workspace.index[self.author.get_data_path()].hex[:7]
         diff = open(
-            os.path.join(os.path.dirname(__file__), "diff_nobranch.diff")
+            os.path.join(os.path.dirname(__file__), "model", "diff_nobranch.diff")
         ).read()
         diff = diff.format(self.author.get_data_path(), blob_hash, self.author.id)
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
@@ -180,14 +181,14 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.author.first_name = "Jane"
         self.author.save()
         blob_hash_2 = self.workspace.index[self.author.get_data_path()].hex[:7]
-        diff = open(os.path.join(os.path.dirname(__file__), "diff_branch.diff")).read()
+        diff = open(os.path.join(os.path.dirname(__file__), "model", "diff_branch.diff")).read()
         diff = diff.format(
             self.author.get_data_path(), blob_hash_1, blob_hash_2, self.author.id
         )
         self.assertMultiLineEqual(diff, self.workspace.diff().patch)
 
     def test_save_commit_history(self):
-        # Test that commited models save correctly
+        # Test that committed models save correctly
         import pygit2
 
         commit1 = self.author.save(commit=True, message="Test first commit")
@@ -239,7 +240,7 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(self.post.get_id(), self.post.slug)
 
     def test_overridden_id_field(self):
-        # tests bug that occured when overriding the id field and not using
+        # tests bug that occurred when overriding the id field and not using
         # that field as the id_attr
         class Resource(self.models.GitModel):
             __workspace__ = self.workspace
@@ -298,7 +299,6 @@ class GitModelBasicTest(TestInstancesMixin, GitModelTestCase):
 
     def test_concrete(self):
         # import the unregistered model
-        from gitmodel.test.model.models import Author
 
         self.author.save()
         id = self.author.get_id()

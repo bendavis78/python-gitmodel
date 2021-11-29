@@ -25,7 +25,7 @@ def build_path(repo, path, entries=None, root=None):
     The root tree OID is returned, so that it can be included in a commit
     or stage.
     """
-    path = path.strip(os.path.sep)
+    path = path.strip("/")
     if path is not None and path != "":
         parent, name = os.path.split(path)
     else:
@@ -36,7 +36,7 @@ def build_path(repo, path, entries=None, root=None):
         root_id = repo.TreeBuilder().write()
         root = repo[root_id]
 
-    if isinstance(root, (basestring, pygit2.Oid)):
+    if isinstance(root, (str, pygit2.Oid)):
         root = repo[root]
 
     if parent is None:
@@ -125,7 +125,7 @@ def glob(repo, tree, pathname):
         glob_in_dir = glob0
     for dirname in dirs:
         for name in glob_in_dir(repo, tree, dirname, basename):
-            yield os.path.join(dirname, name)
+            yield '/'.join([dirname, name])
 
 
 # These 2 helper functions non-recursively glob inside a literal directory.
@@ -136,8 +136,8 @@ def glob(repo, tree, pathname):
 def glob1(repo, tree, dirname, pattern):
     if not dirname:
         dirname = os.curdir
-    if isinstance(pattern, unicode) and not isinstance(dirname, unicode):
-        dirname = unicode(
+    if isinstance(pattern, str) and not isinstance(dirname, str):
+        dirname = str(
             dirname, sys.getfilesystemencoding() or sys.getdefaultencoding()
         )
     if dirname != os.curdir:
@@ -160,7 +160,7 @@ def glob0(repo, tree, dirname, basename):
             if repo[entry.oid].type == pygit2.GIT_OBJ_TREE:
                 return [basename]
     else:
-        if path_exists(tree, os.path.join(dirname, basename)):
+        if path_exists(tree, '/'.join([dirname, basename])):
             return [basename]
     return []
 

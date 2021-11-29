@@ -1,0 +1,5 @@
+{
+    "venvPath": "$WORKON_HOME",
+    "venv": "gitmodel",
+    "reportGeneralTypeIssues": false
+}

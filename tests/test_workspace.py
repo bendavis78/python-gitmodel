@@ -1,5 +1,6 @@
-from gitmodel.test import GitModelTestCase
 from gitmodel import exceptions
+
+from . import GitModelTestCase
 
 
 class GitModelWorkspaceTest(GitModelTestCase):
@@ -24,14 +25,25 @@ class GitModelWorkspaceTest(GitModelTestCase):
         from gitmodel.models import GitModel, DeclarativeMetaclass
         from gitmodel import fields
 
-        class TestModel(GitModel):
+        class TestModelA(GitModel):
             foo = fields.CharField()
             bar = fields.CharField()
 
-        self.workspace.register_model(TestModel)
-        self.assertIsNotNone(self.workspace.models.get("TestModel"))
-        test_model = self.workspace.models.TestModel()
-        self.assertIsInstance(test_model, self.workspace.models.TestModel)
+        self.workspace.register_model(TestModelA)
+
+        self.assertIsNotNone(self.workspace.models.get("TestModelA"))
+        test_model = self.workspace.models.TestModelA()
+        self.assertIsInstance(test_model, self.workspace.models.TestModelA)
+        self.assertIsInstance(type(test_model), DeclarativeMetaclass)
+        self.assertEqual(test_model._meta.workspace, self.workspace)
+
+        class TestModelB(self.workspace.GitModel):
+            foo = fields.CharField()
+            bar = fields.CharField()
+
+        self.assertIsNotNone(self.workspace.models.get("TestModelB"))
+        test_model = self.workspace.models.TestModelB()
+        self.assertIsInstance(test_model, self.workspace.models.TestModelB)
         self.assertIsInstance(type(test_model), DeclarativeMetaclass)
         self.assertEqual(test_model._meta.workspace, self.workspace)
 
@@ -43,24 +55,24 @@ class GitModelWorkspaceTest(GitModelTestCase):
         self.workspace.add_blob("test.txt", "Test")
         self.workspace.commit("initial commit")
         new_workspace = Workspace(self.workspace.repo.path)
-        self.assertEqual(new_workspace.branch.ref.name, "refs/heads/master")
+        self.assertEqual(new_workspace.branch.ref.name, "refs/heads/main")
         self.assertEqual(new_workspace.branch.commit.message, "initial commit")
 
     def test_getitem(self):
         self.workspace.add_blob("test.txt", "Test")
         entry = self.workspace.index["test.txt"]
-        self.assertEqual(self.repo[entry.oid].data, "Test")
+        self.assertEqual(b"Test", self.repo[entry.oid].data)
 
     def test_branch_property(self):
         self.assertIsNone(self.workspace.branch)
         self.workspace.add_blob("test.txt", "Test")
         self.workspace.commit("initial commit")
         self.assertIsNotNone(self.workspace.branch)
-        self.assertEqual(self.workspace.branch.ref.name, "refs/heads/master")
+        self.assertEqual(self.workspace.branch.ref.name, "refs/heads/main")
         self.assertEqual(self.workspace.branch.commit.message, "initial commit")
 
     def test_set_branch(self):
-        # create intial master branch
+        # create intial main branch
         self.workspace.add_blob("test.txt", "Test")
         self.workspace.commit("initial commit")
         # create a new branch
@@ -72,12 +84,12 @@ class GitModelWorkspaceTest(GitModelTestCase):
 
         entry = self.workspace.index["test.txt"]
         test_content = self.repo[entry.oid].data
-        self.assertEqual(test_content, "Test 2")
+        self.assertEqual(b"Test 2", test_content)
 
-        self.workspace.set_branch("master")
+        self.workspace.set_branch("main")
         entry = self.workspace.index["test.txt"]
         test_content = self.repo[entry.oid].data
-        self.assertEqual(test_content, "Test")
+        self.assertEqual(b"Test", test_content)
 
     def test_set_nonexistant_branch(self):
         with self.assertRaises(KeyError):
@@ -94,12 +106,12 @@ class GitModelWorkspaceTest(GitModelTestCase):
     def test_add_blob(self):
         self.workspace.add_blob("test.txt", "Test")
         entry = self.workspace.index["test.txt"]
-        self.assertEqual(self.repo[entry.oid].data, "Test")
+        self.assertEqual(b"Test", self.repo[entry.oid].data)
 
     def test_remove(self):
         self.workspace.add_blob("test.txt", "Test")
         entry = self.workspace.index["test.txt"]
-        self.assertEqual(self.repo[entry.oid].data, "Test")
+        self.assertEqual(b"Test", self.repo[entry.oid].data)
         self.workspace.remove("test.txt")
         with self.assertRaises(KeyError):
             self.workspace.index["test.txt"]
@@ -121,14 +133,14 @@ class GitModelWorkspaceTest(GitModelTestCase):
         except TestException:
             pass
         # since commit should have failed, current branch should be nonexistent
-        self.assertEqual(self.workspace.branch, None)
+        self.assertEqual(None, self.workspace.branch)
 
     def test_commit_on_success_with_pending_changes(self):
         self.workspace.add_blob("foo.txt", "Foobar")
         with self.assertRaisesRegexp(exceptions.RepositoryError, r"pending"):
             with self.workspace.commit_on_success("Test commit"):
                 self.workspace.add_blob("test.txt", "Test")
-        self.assertEqual(self.workspace.branch, None)
+        self.assertEqual(None, self.workspace.branch)
 
     def test_has_changes(self):
         self.workspace.add_blob("foo.txt", "Foobar")

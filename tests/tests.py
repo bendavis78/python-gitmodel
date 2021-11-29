@@ -1,15 +1,18 @@
 import os
+from datetime import time, datetime
 
+from dateutil import tz
 import pygit2
 
-from gitmodel.test import GitModelTestCase
+from .fields import models
+from . import GitModelTestCase
 
 
 class TestInstancesMixin(object):
     def setUp(self):
         super(TestInstancesMixin, self).setUp()
 
-        from gitmodel.test.fields import models
+
 
         self.models = self.workspace.import_models(models)
 
@@ -105,7 +108,7 @@ class FieldValidationTest(TestInstancesMixin, GitModelTestCase):
 
 class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
     def assertTypesMatch(self, field, test_values, type):
-        for value, eq_value in test_values.iteritems():
+        for value, eq_value in iter(test_values.items()):
             setattr(self.person, field, value)
             self.person.save()
             person = self.models.Person.get(self.person.id)
@@ -113,14 +116,12 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
             self.assertEqual(getattr(person, field), eq_value)
 
     def test_char(self):
-        from datetime import datetime
-
         test_values = {
             "John": "John",
             0.007: "0.007",
             datetime(2012, 12, 12): "2012-12-12 00:00:00",
         }
-        self.assertTypesMatch("first_name", test_values, basestring)
+        self.assertTypesMatch("first_name", test_values, str)
 
     def test_integer(self):
         test_values = {33: 33, "33": 33}
@@ -128,7 +129,7 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
 
     def test_float(self):
         test_values = {0.825: 0.825, "0.825": 0.825}
-        self.assertTypesMatch("tax_rate", test_values, float)
+        self.assertTypesMatch("tax_rate", test_values, str)
 
     def test_decimal(self):
         from decimal import Decimal
@@ -174,9 +175,6 @@ class FieldTypeCheckingTest(TestInstancesMixin, GitModelTestCase):
         self.assertEqual(person.date_joined, datetime(2012, 1, 1, 0, 0))
 
     def test_time(self):
-        from datetime import time
-        from dateutil import tz
-
         utc = tz.tzutc()
         utc_offset = tz.tzoffset(None, -1 * 4 * 60 * 60)
         test_values = {

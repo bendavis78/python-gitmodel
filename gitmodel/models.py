@@ -10,7 +10,7 @@ from gitmodel import fields
 from gitmodel import utils
 
 
-class GitModelOptions(object):
+class GitModelOptions:
     """
     An options class for ``GitModel``.
     """
@@ -74,7 +74,7 @@ class GitModelOptions(object):
         passes the instance id.
         """
         model_name = self.model_name.lower()
-        return os.path.join(model_name, unicode(object_id), self.data_filename)
+        return '/'.join([model_name, object_id, self.data_filename])
 
     def add_field(self, field):
         """Insert a field into the fields list in correct order"""
@@ -150,14 +150,12 @@ class GitModelOptions(object):
 
 class DeclarativeMetaclass(type):
     def __new__(cls, name, bases, attrs):
-        super_new = super(DeclarativeMetaclass, cls).__new__
-
         parents = [b for b in bases if isinstance(b, DeclarativeMetaclass)]
         parents.reverse()
 
         if not parents:
             # Don't do anything special for the base GitModel
-            return super_new(cls, name, bases, attrs)
+            return type.__new__(cls, name, bases, attrs)
 
         # workspace that will be passed to GitModelOptions
         workspace = attrs.pop("__workspace__", None)
@@ -169,13 +167,13 @@ class DeclarativeMetaclass(type):
 
         # don't do anything special for GitModels without a workspace
         if not workspace:
-            return super_new(cls, name, bases, attrs)
+            return type.__new__(cls, name, bases, attrs)
 
         # Create the new class, while leaving out the declared attributes
         # which will be added later
         module = attrs.pop("__module__")
         options_cls = attrs.pop("__optclass__", None)
-        new_class = super_new(cls, name, bases, {"__module__": module})
+        new_class = type.__new__(cls, name, bases, {"__module__": module})
 
         # grab the declared Meta
         meta = attrs.pop("Meta", None)
@@ -295,8 +293,7 @@ def concrete(func, self, *args, **kwargs):
     return func(self, *args, **kwargs)
 
 
-class GitModel(object):
-    __metaclass__ = DeclarativeMetaclass
+class GitModel(metaclass=DeclarativeMetaclass):
     __workspace__ = None
 
     @concrete
@@ -341,15 +338,9 @@ class GitModel(object):
         super(GitModel, self).__init__()
 
     def __repr__(self):
-        try:
-            u = unicode(self)
-        except (UnicodeEncodeError, UnicodeDecodeError):
-            u = "[Bad Unicode Data]"
         return u"<{0}: {1}>".format(self._meta.model_name, u)
 
     def __str__(self):
-        if hasattr(self, "__unicode__"):
-            return unicode(self).encode("utf-8")
         return "{0} object".format(self._meta.model_name)
 
     def save(self, commit=False, **commit_info):
@@ -408,7 +399,7 @@ class GitModel(object):
         return getattr(self, self._meta.id_attr)
 
     def get_data_path(self):
-        id = unicode(self.get_id())
+        id = self.get_id()
         return self._meta.get_data_path(id)
 
     @property

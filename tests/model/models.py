@@ -36,7 +36,7 @@ def get_path_custom(opts, object_id):
     # kinda silly, but good for testing that the override works
     model_name = opts.model_name.lower()
     model_name = model_name.replace("alternate", "-alt")
-    return os.path.join(model_name, unicode(object_id), "data.json")
+    return '/'.join([model_name, object_id, "data.json"])
 
 
 class PostAlternate(GitModel):

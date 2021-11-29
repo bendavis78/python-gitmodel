@@ -3,9 +3,10 @@ import decimal
 import os
 import re
 import uuid
+import urllib
+
 from datetime import datetime, date, time
-from StringIO import StringIO
-from urlparse import urlparse
+from io import StringIO
 
 import pygit2
 
@@ -20,7 +21,7 @@ class NOT_PROVIDED:
         return "No default provided."
 
 
-class Field(object):
+class Field:
     """The base implementation of a field used by a GitModel class."""
 
     creation_counter = 0
@@ -76,6 +77,7 @@ class Field(object):
         if field.model:
             field = copy.copy(field)
         field.model = cls
+        print(cls._meta)
         cls._meta.add_field(field)
 
     def has_default(self):
@@ -95,9 +97,9 @@ class Field(object):
         """Returns True if value is considered an empty value for this field"""
         return value is None or value == self.empty_value
 
-    def __cmp__(self, other):
-        # This is needed because bisect does not take a comparison function.
-        return cmp(self.creation_counter, other.creation_counter)
+    def __lt__(self, other):
+        # This is needed when we bisect the field in models.GitModelOptions.add_field.
+        return self.creation_counter < other.creation_counter
 
     def to_python(self, value):
         """
@@ -176,7 +178,7 @@ class CharField(Field):
         if value is None:
             return None
 
-        return unicode(value)
+        return value
 
 
 class SlugField(CharField):
@@ -232,7 +234,7 @@ class URLField(CharField):
         super(URLField, self).validate(value, model_instance)
         if self.empty(value):
             return
-        parsed = urlparse(value)
+        parsed = urllib.parse.urlparse(value)
         if not all((parsed.scheme, parsed.hostname)):
             raise ValidationError("invalid_url", self)
         if self.schemes and parsed.scheme.lower() not in self.schemes:
@@ -240,7 +242,7 @@ class URLField(CharField):
             raise ValidationError("invalid_scheme", self, schemes=schemes)
 
 
-class BlobFieldDescriptor(object):
+class BlobFieldDescriptor:
     def __init__(self, field):
         self.field = field
         self.data = None
@@ -295,7 +297,7 @@ class BlobField(Field):
 
     def get_data_path(self, instance):
         path = os.path.dirname(instance.get_data_path())
-        path = os.path.join(path, self.name)
+        path = '/'.join([path, self.name])
         return "{0}.data".format(path)
 
     def contribute_to_class(self, cls, name):
@@ -395,7 +397,7 @@ class DateField(Field):
         if isinstance(value, date):
             return value
 
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             try:
                 return isodate.parse_iso_date(value)
             except isodate.InvalidFormat:
@@ -418,7 +420,7 @@ class DateTimeField(Field):
         if isinstance(value, date):
             return datetime(value.year, value.month, value.day)
 
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             try:
                 return isodate.parse_iso_datetime(value)
             except isodate.InvalidFormat:
@@ -443,7 +445,7 @@ class TimeField(Field):
         if isinstance(value, time):
             return value
 
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             try:
                 return isodate.parse_iso_time(value)
             except isodate.InvalidFormat:
@@ -452,7 +454,7 @@ class TimeField(Field):
                 raise ValidationError("invalid", self)
 
 
-class RelatedFieldDescriptor(object):
+class RelatedFieldDescriptor:
     def __init__(self, field):
         self.field = field
         self.id = None
@@ -482,7 +484,7 @@ class RelatedField(Field):
             return self._to_model
 
         # if to_model is a string, it must be registered on the same workspace
-        if isinstance(self._to_model, basestring):
+        if isinstance(self._to_model, str):
             if not self.workspace.models.get(self._to_model):
                 msg = "Could not find model '{0}'".format(self._to_model)
                 raise FieldError(msg)
@@ -518,7 +520,7 @@ class RelatedField(Field):
         setattr(cls, name, RelatedFieldDescriptor(self))
 
 
-class GitObjectFieldDescriptor(object):
+class GitObjectFieldDescriptor:
     def __init__(self, field):
         self.field = field
         self.oid = None
@@ -563,7 +565,7 @@ class GitObjectField(CharField):
         super(GitObjectField, self).__init__(**kwargs)
 
     def to_python(self, value):
-        if not isinstance(value, (basestring, pygit2.Oid, pygit2.Object)):
+        if not isinstance(value, (str, pygit2.Oid, pygit2.Object)):
             raise ValidationError("invalid_object", self)
         if isinstance(value, pygit2.Oid):
             return value.hex
@@ -603,5 +605,5 @@ class JSONField(CharField):
             return value
         try:
             return json.loads(value)
-        except ValueError, e:
+        except ValueError as e:
             raise ValidationError(e)
