@@ -6,7 +6,7 @@ import sys
 import pygit2
 
 
-__all__ = ['describe_tree', 'build_path', 'glob']
+__all__ = ["describe_tree", "build_path", "glob"]
 
 
 def build_path(repo, path, entries=None, root=None):
@@ -26,7 +26,7 @@ def build_path(repo, path, entries=None, root=None):
     or stage.
     """
     path = path.strip(os.path.sep)
-    if path is not None and path != '':
+    if path is not None and path != "":
         parent, name = os.path.split(path)
     else:
         parent, name = None, None
@@ -64,9 +64,9 @@ def build_path(repo, path, entries=None, root=None):
 
     entry = (name, oid, pygit2.GIT_FILEMODE_TREE)
 
-    if parent == '':
+    if parent == "":
         # parent is the root tree
-        return build_path(repo, '', (entry,), root)
+        return build_path(repo, "", (entry,), root)
 
     return build_path(repo, parent, (entry,), root)
 
@@ -79,15 +79,15 @@ def describe_tree(repo, tree, indent=2, lvl=0):
     if isinstance(tree, pygit2.Oid):
         tree = repo[tree]
     for e in tree:
-        i = ' ' * indent * lvl
+        i = " " * indent * lvl
         is_tree = repo[e.oid].type == pygit2.GIT_OBJ_TREE
-        slash = is_tree and '/' or ''
-        output.append('{}{}{}'.format(i, e.name, slash))
+        slash = is_tree and "/" or ""
+        output.append("{}{}{}".format(i, e.name, slash))
         if is_tree:
             sub_items = describe_tree(repo, e.oid, indent, lvl + 1)
             output.extend(sub_items)
     if lvl == 0:
-        return '\n'.join(output)
+        return "\n".join(output)
     return output
 
 
@@ -101,7 +101,7 @@ def glob(repo, tree, pathname):
     if isinstance(tree, pygit2.Oid):
         tree = repo[tree]
 
-    pathname = pathname.strip('/')
+    pathname = pathname.strip("/")
     if not has_magic(pathname):
         if path_exists(tree, pathname):
             yield pathname
@@ -127,6 +127,7 @@ def glob(repo, tree, pathname):
         for name in glob_in_dir(repo, tree, dirname, basename):
             yield os.path.join(dirname, name)
 
+
 # These 2 helper functions non-recursively glob inside a literal directory.
 # They return a list of basenames. `glob1` accepts a pattern while `glob0`
 # takes a literal basename (so it only has to check for its existence).
@@ -136,21 +137,22 @@ def glob1(repo, tree, dirname, pattern):
     if not dirname:
         dirname = os.curdir
     if isinstance(pattern, unicode) and not isinstance(dirname, unicode):
-        dirname = unicode(dirname, sys.getfilesystemencoding() or
-                          sys.getdefaultencoding())
+        dirname = unicode(
+            dirname, sys.getfilesystemencoding() or sys.getdefaultencoding()
+        )
     if dirname != os.curdir:
         try:
             tree = repo[tree[dirname].oid]
         except KeyError:
             return []
     names = [e.name for e in tree]
-    if pattern[0] != '.':
-        names = filter(lambda n: n[0] != '.', names)
+    if pattern[0] != ".":
+        names = filter(lambda n: n[0] != ".", names)
     return fnmatch.filter(names, pattern)
 
 
 def glob0(repo, tree, dirname, basename):
-    if basename == '':
+    if basename == "":
         # `os.path.split()` returns an empty basename for paths ending with a
         # directory separator.  'q*x/' should match only directories.
         if path_exists(tree, dirname):
@@ -163,7 +165,7 @@ def glob0(repo, tree, dirname, basename):
     return []
 
 
-magic_check = re.compile('[*?[]')
+magic_check = re.compile("[*?[]")
 
 
 def has_magic(s):

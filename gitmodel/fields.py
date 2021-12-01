@@ -12,27 +12,37 @@ import pygit2
 from gitmodel.utils import isodate, json
 from gitmodel.exceptions import ValidationError, FieldError
 
-INVALID_PATH_CHARS = ('/', '\000')
+INVALID_PATH_CHARS = ("/", "\000")
 
 
 class NOT_PROVIDED:
     def __str__(self):
-        return 'No default provided.'
+        return "No default provided."
 
 
 class Field(object):
     """The base implementation of a field used by a GitModel class."""
+
     creation_counter = 0
     default_error_messages = {
-        'required': 'is required',
-        'invalid_path': 'may only contain valid path characters',
+        "required": "is required",
+        "invalid_path": "may only contain valid path characters",
     }
     serializable = True
     empty_value = None
 
-    def __init__(self, name=None, id=False, default=NOT_PROVIDED,
-                 required=True, readonly=False, unique=False, serialize=True,
-                 autocreated=False, error_messages=None):
+    def __init__(
+        self,
+        name=None,
+        id=False,
+        default=NOT_PROVIDED,
+        required=True,
+        readonly=False,
+        unique=False,
+        serialize=True,
+        autocreated=False,
+        error_messages=None,
+    ):
 
         self.model = None
         self.name = name
@@ -46,10 +56,10 @@ class Field(object):
         self.autocreated = autocreated
 
         # update error_messages using default_error_messages from all parents
-        #NEEDS-TEST
+        # NEEDS-TEST
         messages = {}
         for c in reversed(type(self).__mro__):
-            messages.update(getattr(c, 'default_error_messages', {}))
+            messages.update(getattr(c, "default_error_messages", {}))
         messages.update(error_messages or {})
         self.error_messages = messages
 
@@ -109,10 +119,10 @@ class Field(object):
         ValidationError if invalid.
         """
         if self.required and self.empty(value):
-            raise ValidationError('required', self)
+            raise ValidationError("required", self)
 
         if self.id and any(c in value for c in INVALID_PATH_CHARS):
-            raise ValidationError('invalid_path', self)
+            raise ValidationError("invalid_path", self)
 
     def clean(self, value, model_instance):
         """
@@ -138,9 +148,9 @@ class Field(object):
         """
         return self.to_python(value)
 
-    def get_error_message(self, error_code, default='', **kwargs):
+    def get_error_message(self, error_code, default="", **kwargs):
         msg = self.error_messages.get(error_code, default)
-        kwargs['field'] = self
+        kwargs["field"] = self
         msg = msg.format(**kwargs)
         return '"{name}" {err}'.format(name=self.name, err=msg)
 
@@ -156,7 +166,8 @@ class CharField(Field):
     """
     A text field of arbitrary length.
     """
-    empty_value = ''
+
+    empty_value = ""
 
     def to_python(self, value):
         if value is None and not self.required:
@@ -170,21 +181,20 @@ class CharField(Field):
 
 class SlugField(CharField):
     default_error_messages = {
-        'invalid_slug': ('must contain only letters, numbers, underscores and '
-                         'dashes')
+        "invalid_slug": (
+            "must contain only letters, numbers, underscores and " "dashes"
+        )
     }
 
     def validate(self, value, model_instance):
         super(SlugField, self).validate(value, model_instance)
-        slug_re = re.compile(r'^[-\w]+$')
+        slug_re = re.compile(r"^[-\w]+$")
         if not slug_re.match(value):
-            raise ValidationError('invalid_slug', self)
+            raise ValidationError("invalid_slug", self)
 
 
 class EmailField(CharField):
-    default_error_messages = {
-        'invalid_email': 'must be a valid e-mail address'
-    }
+    default_error_messages = {"invalid_email": "must be a valid e-mail address"}
 
     def validate(self, value, model_instance):
         super(EmailField, self).validate(value, model_instance)
@@ -194,18 +204,19 @@ class EmailField(CharField):
             r"(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
             r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
             r'|\\[\001-011\013\014\016-\177])*"'  # quoted-string
-            r')@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}'
-            r'[A-Z0-9])?\.)+[A-Z]{2,6}\.?$',  # domain
-            re.IGNORECASE)
+            r")@(?:[A-Z0-9](?:[A-Z0-9-]{0,61}"
+            r"[A-Z0-9])?\.)+[A-Z]{2,6}\.?$",  # domain
+            re.IGNORECASE,
+        )
 
         if not email_re.match(value):
-            raise ValidationError('invalid_email', self)
+            raise ValidationError("invalid_email", self)
 
 
 class URLField(CharField):
     default_error_messages = {
-        'invalid_url': 'must be a valid URL',
-        'invalid_scheme': 'scheme must be one of {schemes}'
+        "invalid_url": "must be a valid URL",
+        "invalid_scheme": "scheme must be one of {schemes}",
     }
 
     def __init__(self, **kwargs):
@@ -214,7 +225,7 @@ class URLField(CharField):
         restricted. Raises validation error if url scheme is not in this list.
         Otherwise, any scheme is allowed.
         """
-        self.schemes = kwargs.pop('schemes', None)
+        self.schemes = kwargs.pop("schemes", None)
         super(URLField, self).__init__(self, **kwargs)
 
     def validate(self, value, model_instance):
@@ -223,10 +234,10 @@ class URLField(CharField):
             return
         parsed = urlparse(value)
         if not all((parsed.scheme, parsed.hostname)):
-            raise ValidationError('invalid_url', self)
+            raise ValidationError("invalid_url", self)
         if self.schemes and parsed.scheme.lower() not in self.schemes:
-            schemes = ', '.join(self.schemes)
-            raise ValidationError('invalid_scheme', self, schemes=schemes)
+            schemes = ", ".join(self.schemes)
+            raise ValidationError("invalid_scheme", self, schemes=schemes)
 
 
 class BlobFieldDescriptor(object):
@@ -251,7 +262,7 @@ class BlobFieldDescriptor(object):
             self.data = None
         elif value is None:
             self.data = None
-        elif hasattr(value, 'read'):
+        elif hasattr(value, "read"):
             self.data = StringIO(value.read())
         else:
             self.data = StringIO(value)
@@ -263,10 +274,11 @@ class BlobField(Field):
     its own git blob within the repository, and added as a file entry under the
     same path as the data.json for that instance.
     """
+
     serializable = False
 
     def to_python(self, value):
-        if hasattr(value, 'read'):
+        if hasattr(value, "read"):
             return value
         if value is None:
             return None
@@ -284,7 +296,7 @@ class BlobField(Field):
     def get_data_path(self, instance):
         path = os.path.dirname(instance.get_data_path())
         path = os.path.join(path, self.name)
-        return '{0}.data'.format(path)
+        return "{0}.data".format(path)
 
     def contribute_to_class(self, cls, name):
         super(BlobField, self).contribute_to_class(cls, name)
@@ -298,9 +310,8 @@ class IntegerField(Field):
     """
     An integer field.
     """
-    default_error_messages = {
-        'invalid_int': 'must be an integer'
-    }
+
+    default_error_messages = {"invalid_int": "must be an integer"}
 
     def to_python(self, value):
         if value is None:
@@ -310,9 +321,9 @@ class IntegerField(Field):
         try:
             value = float(value)
         except ValueError:
-            raise ValidationError('invalid_int', self)
+            raise ValidationError("invalid_int", self)
         if value % 1 != 0:
-            raise ValidationError('invalid_int', self)
+            raise ValidationError("invalid_int", self)
         return int(value)
 
 
@@ -320,15 +331,14 @@ class UUIDField(CharField):
     """
     A CharField which uses a globally-unique identifier as its default value
     """
+
     @property
     def default(self):
         return uuid.uuid4().hex
 
 
 class FloatField(Field):
-    default_error_messages = {
-        'invalid_float': 'must be a floating-point number'
-    }
+    default_error_messages = {"invalid_float": "must be a floating-point number"}
 
     def to_python(self, value):
         if value is None:
@@ -336,12 +346,12 @@ class FloatField(Field):
         try:
             return float(value)
         except ValueError:
-            raise ValidationError('invalid_float', self)
+            raise ValidationError("invalid_float", self)
 
 
 class DecimalField(Field):
     default_error_messages = {
-        'invalid_decimal': 'must be a numeric value',
+        "invalid_decimal": "must be a numeric value",
     }
 
     def __init__(self, max_digits=None, decimal_places=None, **kwargs):
@@ -357,7 +367,7 @@ class DecimalField(Field):
         try:
             return decimal.Decimal(value)
         except decimal.InvalidOperation:
-            raise ValidationError('invalid_decimal', self)
+            raise ValidationError("invalid_decimal", self)
 
 
 class BooleanField(Field):
@@ -373,8 +383,8 @@ class BooleanField(Field):
 
 class DateField(Field):
     default_error_messages = {
-        'invalid_format': 'must be in the format of YYYY-MM-DD',
-        'invalid': 'must be a valid date',
+        "invalid_format": "must be in the format of YYYY-MM-DD",
+        "invalid": "must be a valid date",
     }
 
     def to_python(self, value):
@@ -389,15 +399,15 @@ class DateField(Field):
             try:
                 return isodate.parse_iso_date(value)
             except isodate.InvalidFormat:
-                raise ValidationError('invalid_format', self)
+                raise ValidationError("invalid_format", self)
             except isodate.InvalidDate:
-                raise ValidationError('invalid', self)
+                raise ValidationError("invalid", self)
 
 
 class DateTimeField(Field):
     default_error_messages = {
-        'invalid_format': 'must be in the format of YYYY-MM-DD HH:MM[:SS]',
-        'invalid': 'must be a valid date/time'
+        "invalid_format": "must be in the format of YYYY-MM-DD HH:MM[:SS]",
+        "invalid": "must be a valid date/time",
     }
 
     def to_python(self, value):
@@ -416,15 +426,15 @@ class DateTimeField(Field):
                 try:
                     return isodate.parse_iso_date(value)
                 except isodate.InvalidFormat:
-                    raise ValidationError('invalid_format', self)
+                    raise ValidationError("invalid_format", self)
             except isodate.InvalidDate:
-                raise ValidationError('invalid', self)
+                raise ValidationError("invalid", self)
 
 
 class TimeField(Field):
     default_error_messages = {
-        'invalid_format': 'must be in the format of HH:MM[:SS]',
-        'invalid': 'must be a valid time'
+        "invalid_format": "must be in the format of HH:MM[:SS]",
+        "invalid": "must be a valid time",
     }
 
     def to_python(self, value):
@@ -437,9 +447,9 @@ class TimeField(Field):
             try:
                 return isodate.parse_iso_time(value)
             except isodate.InvalidFormat:
-                raise ValidationError('invalid_format', self)
+                raise ValidationError("invalid_format", self)
             except isodate.InvalidDate:
-                raise ValidationError('invalid', self)
+                raise ValidationError("invalid", self)
 
 
 class RelatedFieldDescriptor(object):
@@ -449,6 +459,7 @@ class RelatedFieldDescriptor(object):
 
     def __get__(self, instance, instance_type=None):
         from gitmodel import models
+
         if instance is None:
             return self
         value = instance.__dict__[self.field.name]
@@ -478,7 +489,7 @@ class RelatedField(Field):
             return self.workspace.models[self._to_model]
 
         # if the model has already been registered with a workspace, use as-is
-        if hasattr(self._to_model, '_meta'):
+        if hasattr(self._to_model, "_meta"):
             return self._to_model
 
         # otherwise, check on our own workspace
@@ -491,6 +502,7 @@ class RelatedField(Field):
 
     def to_python(self, value):
         from gitmodel import models
+
         if isinstance(value, models.GitModel):
             return value.get_id()
         return value
@@ -501,7 +513,7 @@ class RelatedField(Field):
 
     def contribute_to_class(self, cls, name):
         super(RelatedField, self).contribute_to_class(cls, name)
-        if hasattr(cls, '_meta'):
+        if hasattr(cls, "_meta"):
             self.workspace = cls._meta.workspace
         setattr(cls, name, RelatedFieldDescriptor(self))
 
@@ -532,9 +544,10 @@ class GitObjectField(CharField):
     Acts as a reference to a git object. This field stores the OID of the
     object. Returns the actual object when accessed as a property.
     """
+
     default_error_messages = {
-        'invalid_oid': "must be a valid git OID or pygit2 Object",
-        'invalid_type': "must point to a {type}",
+        "invalid_oid": "must be a valid git OID or pygit2 Object",
+        "invalid_type": "must point to a {type}",
     }
 
     def __init__(self, **kwargs):
@@ -546,12 +559,12 @@ class GitObjectField(CharField):
         pygit2.Commit, or pygit2.Tree. Any object type that can be resolved
         from a git oid is valid.
         """
-        self.type = kwargs.pop('type', None)
+        self.type = kwargs.pop("type", None)
         super(GitObjectField, self).__init__(**kwargs)
 
     def to_python(self, value):
         if not isinstance(value, (basestring, pygit2.Oid, pygit2.Object)):
-            raise ValidationError('invalid_object', self)
+            raise ValidationError("invalid_object", self)
         if isinstance(value, pygit2.Oid):
             return value.hex
         return value
@@ -577,10 +590,9 @@ class GitObjectField(CharField):
         try:
             obj = model_instance._meta.workspace.repo[oid]
         except (ValueError, KeyError):
-            raise ValidationError('invalid_oid', self)
+            raise ValidationError("invalid_oid", self)
         if self.type and not isinstance(obj, self.type):
-            raise ValidationError('invalid_type', self,
-                                  type=self.type.__name__)
+            raise ValidationError("invalid_type", self, type=self.type.__name__)
 
 
 class JSONField(CharField):

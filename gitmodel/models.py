@@ -14,11 +14,12 @@ class GitModelOptions(object):
     """
     An options class for ``GitModel``.
     """
+
     # attributes that can be overridden in a model's options ("Meta" class)
-    meta_opts = ('abstract', 'data_filename', 'get_data_path', 'id_attr')
+    meta_opts = ("abstract", "data_filename", "get_data_path", "id_attr")
 
     # reserved attributes
-    reserved = ('oid',)
+    reserved = ("oid",)
 
     def __init__(self, meta, workspace):
         self.meta = meta
@@ -29,13 +30,14 @@ class GitModelOptions(object):
         self.model_name = None
         self.parents = []
         self.id_attr = None
-        self.data_filename = 'data.json'
+        self.data_filename = "data.json"
         self._serializer = None
 
     @property
     def serializer(self):
         if self._serializer is None:
             from gitmodel.conf import defaults
+
             default_serializer = defaults.DEFAULT_SERIALIZER
             if self.workspace is not None:
                 default_serializer = self.workspace.config.DEFAULT_SERIALIZER
@@ -52,12 +54,12 @@ class GitModelOptions(object):
         if self.meta:
             # Ignore private attributes
             for name in dir(self.meta):
-                if name.startswith('_') or name not in self.meta_opts:
+                if name.startswith("_") or name not in self.meta_opts:
                     continue
 
                 value = getattr(self.meta, name)
                 # if attr is a function, bind it to this instance
-                if not isinstance(value, type) and hasattr(value, '__call__'):
+                if not isinstance(value, type) and hasattr(value, "__call__"):
                     value = value.__get__(self)
                 setattr(self, name, value)
 
@@ -75,17 +77,18 @@ class GitModelOptions(object):
         return os.path.join(model_name, unicode(object_id), self.data_filename)
 
     def add_field(self, field):
-        """ Insert a field into the fields list in correct order """
+        """Insert a field into the fields list in correct order"""
         if field.name in self.reserved:
-            raise exceptions.FieldError("{} is a reserved name and cannot be"
-                                        "used as a field name.")
+            raise exceptions.FieldError(
+                "{} is a reserved name and cannot be" "used as a field name."
+            )
         # bisect calls field.__cmp__ which uses field.creation_counter to
         # maintain the correct order
         position = bisect(self.local_fields, field)
         self.local_fields.insert(position, field)
 
         # invalidate the field cache
-        if hasattr(self, '_field_cache'):
+        if hasattr(self, "_field_cache"):
             del self._field_cache
 
     @property
@@ -98,7 +101,7 @@ class GitModelOptions(object):
         to this instance (not a copy)
         """
         # get cached field names. if not cached, then fill the cache.
-        if not hasattr(self, '_field_cache'):
+        if not hasattr(self, "_field_cache"):
             self._fill_fields_cache()
         return self._field_cache
 
@@ -141,8 +144,8 @@ class GitModelOptions(object):
                 auto = fields.UUIDField(id=True, autocreated=True)
                 # add to the beginning of the fields list
                 auto.creation_counter = -1
-                model.add_to_class('id', auto)
-                self.id_attr = 'id'
+                model.add_to_class("id", auto)
+                self.id_attr = "id"
 
 
 class DeclarativeMetaclass(type):
@@ -157,11 +160,11 @@ class DeclarativeMetaclass(type):
             return super_new(cls, name, bases, attrs)
 
         # workspace that will be passed to GitModelOptions
-        workspace = attrs.pop('__workspace__', None)
+        workspace = attrs.pop("__workspace__", None)
 
         # inherit parent workspace if not provided
         if not workspace:
-            if len(parents) > 0 and hasattr(parents[0], '_meta'):
+            if len(parents) > 0 and hasattr(parents[0], "_meta"):
                 workspace = parents[0]._meta.workspace
 
         # don't do anything special for GitModels without a workspace
@@ -170,14 +173,14 @@ class DeclarativeMetaclass(type):
 
         # Create the new class, while leaving out the declared attributes
         # which will be added later
-        module = attrs.pop('__module__')
-        options_cls = attrs.pop('__optclass__', None)
-        new_class = super_new(cls, name, bases, {'__module__': module})
+        module = attrs.pop("__module__")
+        options_cls = attrs.pop("__optclass__", None)
+        new_class = super_new(cls, name, bases, {"__module__": module})
 
         # grab the declared Meta
-        meta = attrs.pop('Meta', None)
+        meta = attrs.pop("Meta", None)
         base_meta = None
-        if parents and hasattr(parents[0], '_meta'):
+        if parents and hasattr(parents[0], "_meta"):
             base_meta = parents[0]._meta
 
         # Add _meta to the new class. The _meta property is an instance of
@@ -190,15 +193,21 @@ class DeclarativeMetaclass(type):
 
         if meta is None:
             # if meta is not declared, use the closest parent's meta
-            meta = next((p._meta._declared_meta for p in parents if
-                        hasattr(p, '_meta') and p._meta._declared_meta), None)
+            meta = next(
+                (
+                    p._meta._declared_meta
+                    for p in parents
+                    if hasattr(p, "_meta") and p._meta._declared_meta
+                ),
+                None,
+            )
             # don't inherit the abstract property
-            if hasattr(meta, 'abstract'):
+            if hasattr(meta, "abstract"):
                 meta.abstract = False
 
         opts = options_cls(meta, workspace)
 
-        new_class.add_to_class('_meta', opts)
+        new_class.add_to_class("_meta", opts)
 
         # Add all attributes to the class
         for obj_name, obj in attrs.items():
@@ -206,7 +215,7 @@ class DeclarativeMetaclass(type):
 
         # Handle parents
         for parent in parents:
-            if not hasattr(parent, '_meta'):
+            if not hasattr(parent, "_meta"):
                 # Ignore parents that have no _meta
                 continue
             new_class._check_parent_fields(parent)
@@ -230,8 +239,10 @@ class DeclarativeMetaclass(type):
         # Check for duplicate field definitions in parent
         for field in parent._meta.local_fields:
             if not field.autocreated and field.name in local_field_names:
-                msg = ('Duplicate field name "{0}" in {1!r} already exists in '
-                       'parent model {2!r}')
+                msg = (
+                    'Duplicate field name "{0}" in {1!r} already exists in '
+                    "parent model {2!r}"
+                )
                 msg = msg.format(field.name, child.__name__, parent.__name__)
                 raise exceptions.FieldError(msg)
 
@@ -248,7 +259,7 @@ class DeclarativeMetaclass(type):
 
         # Give the class a docstring
         if cls.__doc__ is None:
-            fields = ', '.join(f.name for f in opts.fields)
+            fields = ", ".join(f.name for f in opts.fields)
             cls.__doc__ = "{}({})".format(cls.__name__, fields)
 
     def add_to_class(cls, name, value):
@@ -257,7 +268,7 @@ class DeclarativeMetaclass(type):
         be called. Otherwise, this is an alias to setattr.  This allows objects
         to have control over how they're added to a class during its creation.
         """
-        if hasattr(value, 'contribute_to_class'):
+        if hasattr(value, "contribute_to_class"):
             value.contribute_to_class(cls, name)
         else:
             setattr(cls, name, value)
@@ -272,9 +283,11 @@ def concrete(func, self, *args, **kwargs):
     model = self
     if not isinstance(model, type):
         model = type(self)
-    if not hasattr(model, '_meta'):
-        msg = ("Cannot call {0.__name__}.{1.__name__}() because {0!r} "
-               "has not been registered with a workspace")
+    if not hasattr(model, "_meta"):
+        msg = (
+            "Cannot call {0.__name__}.{1.__name__}() because {0!r} "
+            "has not been registered with a workspace"
+        )
         raise exceptions.GitModelError(msg.format(model, func))
     if model._meta.abstract:
         msg = "Cannot call {1.__name__}() on abstract model {0.__name__} "
@@ -296,7 +309,7 @@ class GitModel(object):
         that this model is being instantiated from an existing instance in the
         git repository. Deserializing a model will automatically set this oid.
         """
-        self._oid = kwargs.pop('oid', None)
+        self._oid = kwargs.pop("oid", None)
 
         # To keep things simple, we only accept attribute values as kwargs
         # Check for fields in kwargs
@@ -331,13 +344,13 @@ class GitModel(object):
         try:
             u = unicode(self)
         except (UnicodeEncodeError, UnicodeDecodeError):
-            u = '[Bad Unicode Data]'
-        return u'<{0}: {1}>'.format(self._meta.model_name, u)
+            u = "[Bad Unicode Data]"
+        return u"<{0}: {1}>".format(self._meta.model_name, u)
 
     def __str__(self):
-        if hasattr(self, '__unicode__'):
-            return unicode(self).encode('utf-8')
-        return '{0} object'.format(self._meta.model_name)
+        if hasattr(self, "__unicode__"):
+            return unicode(self).encode("utf-8")
+        return "{0} object".format(self._meta.model_name)
 
     def save(self, commit=False, **commit_info):
         # make sure model has clean data
@@ -353,7 +366,8 @@ class GitModel(object):
                 pass
             else:
                 err = 'A {} instance already exists with id "{}"'.format(
-                    type(self).__name__, self.get_id())
+                    type(self).__name__, self.get_id()
+                )
                 raise exceptions.IntegrityError(err)
 
         serialized = self._meta.serializer.serialize(self)
@@ -363,8 +377,10 @@ class GitModel(object):
         # only allow commit-during-save if workspace doesn't have pending
         # changes.
         if commit and workspace.has_changes():
-            msg = "Repository has pending changes. Cannot save-commit until "\
-                  "pending changes have been comitted."
+            msg = (
+                "Repository has pending changes. Cannot save-commit until "
+                "pending changes have been comitted."
+            )
             raise exceptions.RepositoryError(msg)
 
         # create the git object and set the instance oid
@@ -377,7 +393,7 @@ class GitModel(object):
 
         # if our path has changed, remove the old path. This generally only
         # happens with a custom mutable id_attr.
-        old_path = getattr(self, '_current_path', None)
+        old_path = getattr(self, "_current_path", None)
         new_path = self.get_data_path()
         if old_path and old_path != new_path:
             rmpath = os.path.dirname(old_path)
@@ -449,7 +465,7 @@ class GitModel(object):
 
         msg = "{} with id {}{} does not exist."
         name = cls._meta.model_name
-        revname = treeish and '@{}'.format(treeish) or ''
+        revname = treeish and "@{}".format(treeish) or ""
         msg = msg.format(name, id, revname)
 
         if not tree:
@@ -469,7 +485,7 @@ class GitModel(object):
         """
         Returns a generator for all instances of this model.
         """
-        pattern = cls._meta.get_data_path('*')
+        pattern = cls._meta.get_data_path("*")
         workspace = cls._meta.workspace
         repo = workspace.repo
 
@@ -502,6 +518,7 @@ class ModelSet(object):
     """
     A read-only container type initailized with a generator
     """
+
     def __init__(self, gen):
         self._gen = gen
 

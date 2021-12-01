@@ -55,11 +55,12 @@ class GitModelJSONEncoder(json.JSONEncoder):
     """
     JSONEncoder subclass that knows how to encode date/time and decimal types.
     """
+
     def default(self, o):
         if isinstance(o, datetime.datetime):
             return o.isoformat()
         elif isinstance(o, datetime.date):
-            return o.isoformat().split('T')[0]
+            return o.isoformat().split("T")[0]
         elif isinstance(o, datetime.time):
             return o.isoformat()
         elif isinstance(o, decimal.Decimal):
