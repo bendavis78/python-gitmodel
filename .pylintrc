@@ -1,0 +1,10 @@
+[MASTER]
+
+ignore=docs, __pycache__
+disable=
+	no-member,
+	too-many-arguments,
+	too-few-public-methods,
+	logging-format-interpolation,
+	missing-module-docstring
+

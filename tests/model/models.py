@@ -6,7 +6,7 @@ class Author(GitModel):
     first_name = fields.CharField()
     last_name = fields.CharField()
     email = fields.CharField()
-    language = fields.CharField(default='en-US')
+    language = fields.CharField(default="en-US")
 
 
 class Post(GitModel):
@@ -22,7 +22,7 @@ class Person(GitModel):
     email = fields.EmailField()
 
     class Meta:
-        data_filename = 'person_data.json'
+        data_filename = "person_data.json"
 
 
 class User(Person):
@@ -32,10 +32,11 @@ class User(Person):
 
 def get_path_custom(opts, object_id):
     import os
+
     # kinda silly, but good for testing that the override works
     model_name = opts.model_name.lower()
-    model_name = model_name.replace('alternate', '-alt')
-    return os.path.join(model_name, unicode(object_id), 'data.json')
+    model_name = model_name.replace("alternate", "-alt")
+    return '/'.join([model_name, object_id, "data.json"])
 
 
 class PostAlternate(GitModel):
@@ -43,7 +44,7 @@ class PostAlternate(GitModel):
     title = fields.CharField()
 
     class Meta:
-        id_attr = 'slug'
+        id_attr = "slug"
         get_data_path = get_path_custom
 
 
@@ -51,7 +52,7 @@ class PostAlternateSub(PostAlternate):
     foo = fields.CharField()
 
     class Meta(PostAlternate.Meta):
-        id_attr = 'foo'
+        id_attr = "foo"
 
 
 class AbstractBase(GitModel):

@@ -1,0 +1,63 @@
+{
+	"build_systems": [
+		{
+			"cmd": [
+				"pip",
+				"install",
+				"--editable",
+				".[ci]"
+			],
+			"name": "Install requirements with PyPI",
+			"path": "$WORKON_HOME/gitmodel/bin:$PATH",
+			"windows": {
+				"path": "$WORKON_HOME/gitmodel/Scripts;$PATH",
+			},
+			"working_dir": "$project_path",
+		},
+		{
+			"cmd": [
+				"pytest",
+				"--cov-report=html",
+				"--cov=gitmodel"
+			],
+			"name": "Test with pytest",
+			"path": "$WORKON_HOME/gitmodel/bin:$PATH",
+			"windows": {
+				"path": "$WORKON_HOME/gitmodel/Scripts;$PATH",
+			},
+			"working_dir": "$project_path",
+		},
+		{
+			"cmd": [
+				"sphinx-build",
+				"./docs/source",
+				"./docs/build"
+			],
+			"name": "Document with Sphinx",
+			"path": "$WORKON_HOME/gitmodel/bin:$PATH",
+			"windows": {
+				"path": "$WORKON_HOME/gitmodel/Scripts;$PATH",
+			},
+			"working_dir": "$project_path",
+		}
+	],
+	"folders": [
+		{
+			"file_exclude_patterns": [
+				".coverage"
+			],
+			"folder_exclude_patterns": [
+				"__pycache__",
+				"htmlcov",
+				"*.egg-info",
+				".pytest_cache",
+				"build"
+			],
+			"path": ".",
+		},
+		{
+			"path": "C:\\Users\\Douglas\\Desktop\\pygit2-master"
+		},
+	],
+	"virtualenv": "$WORKON_HOME/gitmodel",
+}

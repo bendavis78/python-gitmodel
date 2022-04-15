@@ -12,7 +12,7 @@ from gitmodel import models
 from gitmodel import utils
 
 
-class Workspace(object):
+class Workspace:
     """
     A workspace acts as an encapsulation within which any model work is done.
     It is analogous to a git working directory. It also acts as a "porcelain"
@@ -24,12 +24,14 @@ class Workspace(object):
 
     Passing initial_branch will set the default head for the workspace.
     """
-    def __init__(self, repo_path, initial_branch='refs/heads/master'):
+
+    def __init__(self, repo_path, initial_branch="refs/heads/main"):
         self.config = conf.Config()
 
         # set up a model registry
         class ModelRegistry(dict):
             """This class acts like a so-called AttrDict"""
+
             def __init__(self):
                 self.__dict__ = self
 
@@ -57,7 +59,7 @@ class Workspace(object):
             self.update_index(self.head)
 
         # add a base GitModel which can be extended if needed
-        self.register_model(models.GitModel, 'GitModel')
+        self.register_model(models.GitModel, "GitModel")
 
         self.log = logging.getLogger(__name__)
 
@@ -82,7 +84,7 @@ class Workspace(object):
         if self.models.get(name):
             return self.models[name]
 
-        if hasattr(cls, '_meta'):
+        if hasattr(cls, "_meta"):
             if cls._meta.workspace != self:
                 msg = "{0} is already registered with a different workspace"
                 raise ValueError(msg.format(cls.__name__))
@@ -92,14 +94,17 @@ class Workspace(object):
             return cls
 
         metaclass = models.DeclarativeMetaclass
-        attrs = dict(cls.__dict__, **{
-            '__workspace__': self,
-        })
-        if not attrs.get('__module__'):
-            attrs['__module__'] == __name__
+        attrs = dict(
+            cls.__dict__,
+            **{
+                "__workspace__": self,
+            }
+        )
+        if not attrs.get("__module__"):
+            attrs["__module__"] == __name__
 
-        if attrs.get('__dict__'):
-            del attrs['__dict__']
+        if attrs.get("__dict__"):
+            del attrs["__dict__"]
 
         # the cloned model must subclass the original so as not to break
         # type-checking operations
@@ -107,8 +112,7 @@ class Workspace(object):
 
         # parents must also be registered with the workspace
         for base in cls.__bases__:
-            if issubclass(base, models.GitModel) and \
-                    not hasattr(base, '_meta'):
+            if issubclass(base, models.GitModel) and not hasattr(base, "_meta"):
                 base = self.models.get(name) or self.register_model(base)
             bases.append(base)
 
@@ -121,15 +125,14 @@ class Workspace(object):
         """
         Register all models declared within a given python module
         """
-        if isinstance(path_or_module, basestring):
+        if isinstance(path_or_module, str):
             mod = import_module(path_or_module)
         else:
             mod = path_or_module
 
         for name in dir(mod):
             item = getattr(mod, name)
-            if isinstance(item, type) and \
-                    issubclass(item, models.GitModel):
+            if isinstance(item, type) and issubclass(item, models.GitModel):
                 self.register_model(item, name)
 
         return self.models
@@ -148,9 +151,9 @@ class Workspace(object):
         start_point_ref = self.repo.lookup_reference(start_point)
 
         if start_point_ref.type != pygit2.GIT_OBJ_COMMIT:
-            raise ValueError('Given reference must point to a commit')
+            raise ValueError("Given reference must point to a commit")
 
-        branch_ref = 'refs/heads/{}'.format(name)
+        branch_ref = "refs/heads/{}".format(name)
         self.repo.create_reference(branch_ref, start_point_ref.target)
 
     def get_branch(self, ref_name):
@@ -161,7 +164,7 @@ class Workspace(object):
         Sets the current head ref to the given branch name
         """
         # make sure the branch is a valid head ref
-        ref = 'refs/heads/{}'.format(name)
+        ref = "refs/heads/{}".format(name)
         self.repo.lookup_reference(ref)
         self.update_index(ref)
 
@@ -181,7 +184,7 @@ class Workspace(object):
 
         tree = utils.treeish_to_tree(self.repo, treeish)
 
-        if treeish.startswith('refs/heads'):
+        if treeish.startswith("refs/heads"):
             # if treeish is a head ref, update head
             self.head = treeish
         else:
@@ -223,7 +226,7 @@ class Workspace(object):
         return blob
 
     @contextmanager
-    def commit_on_success(self, message='', author=None, committer=None):
+    def commit_on_success(self, message="", author=None, committer=None):
         """
         A context manager that allows you to wrap a block of changes and commit
         those changes if no exceptions occur. This also ensures that the
@@ -232,8 +235,10 @@ class Workspace(object):
         """
         # ensure a clean state
         if self.has_changes():
-            msg = "Repository has pending changes. Cannot auto-commit until "\
-                  "pending changes have been comitted."
+            msg = (
+                "Repository has pending changes. Cannot auto-commit until "
+                "pending changes have been comitted."
+            )
             raise exceptions.RepositoryError(msg)
 
         yield
@@ -258,18 +263,20 @@ class Workspace(object):
         # if there are  no changes, so we check the iterable length instead.
         return len(tuple(self.diff())) > 0
 
-    def commit(self, message='', author=None, committer=None):
+    def commit(self, message="", author=None, committer=None):
         """Commits the current tree to the current branch."""
         if not self.has_changes():
             return None
         parents = []
         if self.branch:
             parents = [self.branch.commit.oid]
-        return self.create_commit(self.head, self.index, message, author,
-                                  committer, parents)
+        return self.create_commit(
+            self.head, self.index, message, author, committer, parents
+        )
 
-    def create_commit(self, ref, tree, message='', author=None,
-                      committer=None, parents=None):
+    def create_commit(
+        self, ref, tree, message="", author=None, committer=None, parents=None
+    ):
         """
         Create a commit with the given ref, tree, and message. If parent
         commits are not given, the commit pointed to by the given ref is used
@@ -281,10 +288,9 @@ class Workspace(object):
         if not committer:
             committer = author
 
-        default_offset = self.config.get('DEFAULT_TZ_OFFSET', None)
+        default_offset = self.config.get("DEFAULT_TZ_OFFSET", None)
         author = utils.make_signature(*author, default_offset=default_offset)
-        committer = utils.make_signature(*committer,
-                                         default_offset=default_offset)
+        committer = utils.make_signature(*committer, default_offset=default_offset)
 
         if parents is None:
             try:
@@ -297,12 +303,13 @@ class Workspace(object):
         # FIXME: create_commit updates the HEAD ref. HEAD isn't used in
         # gitmodel, however it would be prudent to make sure it doesn't
         # get changed. Possibly need to just restore it after the commit
-        return self.repo.create_commit(ref, author, committer, message,
-                                       tree.oid, parents)
+        return self.repo.create_commit(
+            ref, author, committer, message, tree.oid, parents
+        )
 
     def walk(self, sort=pygit2.GIT_SORT_TIME):
         """Iterate through commits on the current branch"""
-        #NEEDS-TEST
+        # NEEDS-TEST
         for commit in self.repo.walk(self.branch.oid, sort):
             yield commit
 
@@ -315,20 +322,22 @@ class Workspace(object):
         start_time = time()
         while self.locked(id):
             if time() - start_time > self.config.LOCK_WAIT_TIMEOUT:
-                msg = ("Lock wait timeout exceeded while trying to acquire "
-                       "lock '{}' on {}").format(id, self.path)
+                msg = (
+                    "Lock wait timeout exceeded while trying to acquire "
+                    "lock '{}' on {}"
+                ).format(id, self.path)
                 raise exceptions.LockWaitTimeoutExceeded(msg)
             time.sleep(self.config.LOCK_WAIT_INTERVAL)
 
         # The blob itself is not important, just the fact that the ref exists
-        emptyblob = self.create_blob('')
-        ref = self.repo.create_reference('refs/locks/{}'.format(id), emptyblob)
+        emptyblob = self.create_blob("")
+        ref = self.repo.create_reference("refs/locks/{}".format(id), emptyblob)
         yield
         ref.delete()
 
     def locked(self, id):
         try:
-            self.repo.lookup_reference('refs/locks/{}'.format(id))
+            self.repo.lookup_reference("refs/locks/{}".format(id))
         except KeyError:
             return False
         return True
@@ -344,24 +353,25 @@ class Workspace(object):
 
         This function acquires a workspace-level INDEX lock.
         """
-        with self.lock('INDEX'):
+        with self.lock("INDEX"):
             self.repo.index.read_tree(self.index.oid)
             if checkout:
                 self.repo.checkout()
 
 
-class Branch(object):
+class Branch:
     """
     A representation of a git branch that provides quick access to the ref,
     commit, and commit tree.
     """
+
     def __init__(self, repo, ref_name):
         try:
             self.ref = repo.lookup_reference(ref_name)
         except KeyError:
             msg = "Reference not found: {}".format(ref_name)
             raise exceptions.RepositoryError(msg)
-        self.commit = self.ref.get_object()
+        self.commit = self.ref.peel()
         self.oid = self.commit.oid
         self.tree = self.commit.tree
 

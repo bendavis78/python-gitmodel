@@ -22,8 +22,8 @@ class Author(models.GitModel):
     first_name = fields.CharField()
     last_name = fields.CharField()
     email = fields.EmailField()
-    language = fields.CharField(default='en-US')
-    url = fields.URLField(schemes=('http', 'https'), required=False)
+    language = fields.CharField(default="en-US")
+    url = fields.URLField(schemes=("http", "https"), required=False)
 
 
 class Post(models.GitModel):

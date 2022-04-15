@@ -6,7 +6,7 @@ import sys
 import pygit2
 
 
-__all__ = ['describe_tree', 'build_path', 'glob']
+__all__ = ["describe_tree", "build_path", "glob"]
 
 
 def build_path(repo, path, entries=None, root=None):
@@ -25,8 +25,8 @@ def build_path(repo, path, entries=None, root=None):
     The root tree OID is returned, so that it can be included in a commit
     or stage.
     """
-    path = path.strip(os.path.sep)
-    if path is not None and path != '':
+    path = path.strip("/")
+    if path is not None and path != "":
         parent, name = os.path.split(path)
     else:
         parent, name = None, None
@@ -36,7 +36,7 @@ def build_path(repo, path, entries=None, root=None):
         root_id = repo.TreeBuilder().write()
         root = repo[root_id]
 
-    if isinstance(root, (basestring, pygit2.Oid)):
+    if isinstance(root, (str, pygit2.Oid)):
         root = repo[root]
 
     if parent is None:
@@ -64,9 +64,9 @@ def build_path(repo, path, entries=None, root=None):
 
     entry = (name, oid, pygit2.GIT_FILEMODE_TREE)
 
-    if parent == '':
+    if parent == "":
         # parent is the root tree
-        return build_path(repo, '', (entry,), root)
+        return build_path(repo, "", (entry,), root)
 
     return build_path(repo, parent, (entry,), root)
 
@@ -79,15 +79,15 @@ def describe_tree(repo, tree, indent=2, lvl=0):
     if isinstance(tree, pygit2.Oid):
         tree = repo[tree]
     for e in tree:
-        i = ' ' * indent * lvl
+        i = " " * indent * lvl
         is_tree = repo[e.oid].type == pygit2.GIT_OBJ_TREE
-        slash = is_tree and '/' or ''
-        output.append('{}{}{}'.format(i, e.name, slash))
+        slash = is_tree and "/" or ""
+        output.append("{}{}{}".format(i, e.name, slash))
         if is_tree:
             sub_items = describe_tree(repo, e.oid, indent, lvl + 1)
             output.extend(sub_items)
     if lvl == 0:
-        return '\n'.join(output)
+        return "\n".join(output)
     return output
 
 
@@ -101,7 +101,7 @@ def glob(repo, tree, pathname):
     if isinstance(tree, pygit2.Oid):
         tree = repo[tree]
 
-    pathname = pathname.strip('/')
+    pathname = pathname.strip("/")
     if not has_magic(pathname):
         if path_exists(tree, pathname):
             yield pathname
@@ -125,7 +125,8 @@ def glob(repo, tree, pathname):
         glob_in_dir = glob0
     for dirname in dirs:
         for name in glob_in_dir(repo, tree, dirname, basename):
-            yield os.path.join(dirname, name)
+            yield '/'.join([dirname, name])
+
 
 # These 2 helper functions non-recursively glob inside a literal directory.
 # They return a list of basenames. `glob1` accepts a pattern while `glob0`
@@ -135,22 +136,23 @@ def glob(repo, tree, pathname):
 def glob1(repo, tree, dirname, pattern):
     if not dirname:
         dirname = os.curdir
-    if isinstance(pattern, unicode) and not isinstance(dirname, unicode):
-        dirname = unicode(dirname, sys.getfilesystemencoding() or
-                          sys.getdefaultencoding())
+    if isinstance(pattern, str) and not isinstance(dirname, str):
+        dirname = str(
+            dirname, sys.getfilesystemencoding() or sys.getdefaultencoding()
+        )
     if dirname != os.curdir:
         try:
             tree = repo[tree[dirname].oid]
         except KeyError:
             return []
     names = [e.name for e in tree]
-    if pattern[0] != '.':
-        names = filter(lambda n: n[0] != '.', names)
+    if pattern[0] != ".":
+        names = filter(lambda n: n[0] != ".", names)
     return fnmatch.filter(names, pattern)
 
 
 def glob0(repo, tree, dirname, basename):
-    if basename == '':
+    if basename == "":
         # `os.path.split()` returns an empty basename for paths ending with a
         # directory separator.  'q*x/' should match only directories.
         if path_exists(tree, dirname):
@@ -158,12 +160,12 @@ def glob0(repo, tree, dirname, basename):
             if repo[entry.oid].type == pygit2.GIT_OBJ_TREE:
                 return [basename]
     else:
-        if path_exists(tree, os.path.join(dirname, basename)):
+        if path_exists(tree, '/'.join([dirname, basename])):
             return [basename]
     return []
 
 
-magic_check = re.compile('[*?[]')
+magic_check = re.compile("[*?[]")
 
 
 def has_magic(s):
